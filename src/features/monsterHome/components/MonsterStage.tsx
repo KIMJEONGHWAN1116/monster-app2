@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import type { ViewStyle } from "react-native";
 import {
   Animated,
   Image,
@@ -17,7 +18,9 @@ const monsterFaceBlink = require("../../../assets/lottie/monster_face_blink.json
 const monsterFaceIdle = require("../../../assets/lottie/monster_face_idle.json");
 const monsterFaceSquash = require("../../../assets/lottie/monster_face_squash.json");
 const noBrowserPanStyle =
-  Platform.OS === "web" ? ({ touchAction: "none" } as const) : null;
+  Platform.OS === "web"
+    ? ({ touchAction: "none" } as unknown as ViewStyle)
+    : null;
 
 type MonsterStageProps = {
   evolutionImage?: ImageSourcePropType;

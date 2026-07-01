@@ -14,7 +14,7 @@ export type EvolutionChoice = {
 
 const anxietyEvolutionImage = require("../../../assets/images/evolution/anxiety-evolution-mint.png");
 const ikariEvolutionImage = require("../../../assets/images/evolution/ikari-evolution.png");
-const baseMonsterImage = require("../../../assets/images/tabIcons/monster.png");
+const kanashimiEvolutionImage = require("../../../assets/images/evolution/kanashimi-evolution.png");
 
 export const evolutionChoices: EvolutionChoice[] = [
   {
@@ -37,7 +37,7 @@ export const evolutionChoices: EvolutionChoice[] = [
     description:
       "かなしさやさみしさを多く食べて育つ進化先。こぼれそうな気持ちに寄り添い、静かにそばにいてくれます。",
     id: "kanashimi",
-    imageSource: baseMonsterImage,
+    imageSource: kanashimiEvolutionImage,
     keywords: ["かなしい", "さみしい", "つかれた", "その他"],
     name: "かなしみタイプ",
   },
