@@ -116,7 +116,7 @@ export function FeedReactionScreen({
 
           <View style={styles.monsterWrap}>
             <MonsterPreview
-              evolutionImage={currentEvolution?.imageSource}
+              evolutionVisual={currentEvolution?.visual}
               size={monsterSize}
             />
           </View>

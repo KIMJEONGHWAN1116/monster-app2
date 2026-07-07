@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import {
-  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -10,6 +9,7 @@ import {
   View,
 } from "react-native";
 
+import { MonsterPreview } from "../components/MonsterPreview";
 import { EvolutionChoice } from "../state/evolution";
 import { MonsterTheme, monsterTheme } from "../styles/theme";
 
@@ -104,10 +104,9 @@ export function EvolutionScreen({
               ]}
             >
               <View style={styles.imageFrame}>
-                <Image
-                  source={candidate.imageSource}
-                  resizeMode="contain"
-                  style={styles.monsterImage}
+                <MonsterPreview
+                  evolutionVisual={candidate.visual}
+                  size={112}
                 />
               </View>
 
@@ -222,10 +221,6 @@ const styles = StyleSheet.create({
     height: 112,
     justifyContent: "center",
     width: 108,
-  },
-  monsterImage: {
-    height: "116%",
-    width: "116%",
   },
   note: {
     fontSize: 14,

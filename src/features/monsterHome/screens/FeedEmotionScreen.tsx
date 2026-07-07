@@ -126,7 +126,7 @@ export function FeedEmotionScreen({
           <View style={[styles.content, { width: contentWidth }]}>
             <View style={styles.promptRow}>
               <MonsterPreview
-                evolutionImage={currentEvolution?.imageSource}
+                evolutionVisual={currentEvolution?.visual}
                 size={monsterSize}
               />
 

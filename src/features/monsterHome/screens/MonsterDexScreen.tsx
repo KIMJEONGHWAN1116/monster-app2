@@ -1,6 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import {
-  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -10,6 +9,7 @@ import {
   View,
 } from "react-native";
 
+import { MonsterPreview } from "../components/MonsterPreview";
 import { evolutionChoices, EvolutionId } from "../state/evolution";
 import { MonsterTheme, monsterTheme } from "../styles/theme";
 
@@ -109,14 +109,17 @@ export function MonsterDexScreen({
                     !isRegistered && styles.lockedImageFrame,
                   ]}
                 >
-                  <Image
-                    source={choice.imageSource}
-                    resizeMode="contain"
+                  <View
                     style={[
-                      styles.monsterImage,
-                      !isRegistered && styles.lockedImage,
+                      styles.monsterVisual,
+                      !isRegistered && styles.lockedVisual,
                     ]}
-                  />
+                  >
+                    <MonsterPreview
+                      evolutionVisual={choice.visual}
+                      size={116}
+                    />
+                  </View>
                   {!isRegistered && (
                     <View style={styles.lockBadge}>
                       <MaterialCommunityIcons
@@ -217,16 +220,18 @@ const styles = StyleSheet.create({
     right: 2,
     width: 38,
   },
-  lockedImage: {
+  lockedVisual: {
     opacity: 0.2,
   },
   lockedImageFrame: {
     backgroundColor: "rgba(238, 227, 255, 0.46)",
     borderRadius: 26,
   },
-  monsterImage: {
-    height: "118%",
-    width: "118%",
+  monsterVisual: {
+    alignItems: "center",
+    height: "100%",
+    justifyContent: "center",
+    width: "100%",
   },
   scrollContent: {
     paddingBottom: 34,

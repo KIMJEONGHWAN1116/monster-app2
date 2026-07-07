@@ -95,7 +95,7 @@ export function HomeScreen({
             {monster.name}
           </Text>
           <MonsterStage
-            evolutionImage={currentEvolution?.imageSource}
+            evolutionVisual={currentEvolution?.visual}
             width={stageWidth}
           />
           <HungerCard

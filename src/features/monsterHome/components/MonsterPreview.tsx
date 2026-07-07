@@ -1,58 +1,95 @@
-import { Image, ImageSourcePropType, StyleSheet, View } from "react-native";
+import { Image, StyleSheet, View } from "react-native";
 import LottieView from "lottie-react-native";
+import type { AnimationObject } from "lottie-react-native";
+
+import type { EvolutionVisual } from "../state/evolution";
 
 const monsterBodyIdle = require("../../../assets/lottie/monster_body_idle.json");
 const monsterFaceIdle = require("../../../assets/lottie/monster_face_idle.json");
 
 type MonsterPreviewProps = {
-  evolutionImage?: ImageSourcePropType;
+  evolutionVisual?: EvolutionVisual | null;
   size: number;
 };
 
-export function MonsterPreview({ evolutionImage, size }: MonsterPreviewProps) {
-  if (!evolutionImage) {
-    const lottieSize = size * 2.28;
+export function MonsterPreview({ evolutionVisual, size }: MonsterPreviewProps) {
+  if (!evolutionVisual) {
+    return (
+      <LayeredLottiePreview
+        bodySource={monsterBodyIdle}
+        faceSource={monsterFaceIdle}
+        scale={2.28}
+        size={size}
+      />
+    );
+  }
+
+  if (evolutionVisual.kind === "lottie") {
+    const { animation } = evolutionVisual;
 
     return (
-      <View style={[styles.container, { height: size, width: size }]}>
-        <View
-          pointerEvents="none"
-          style={[
-            styles.lottieWrap,
-            {
-              height: lottieSize,
-              width: lottieSize,
-            },
-          ]}
-        >
-          <View style={[styles.monsterLayer, styles.bodyLayer]}>
-            <LottieView
-              autoPlay
-              loop
-              source={monsterBodyIdle}
-              style={styles.lottieFill}
-            />
-          </View>
-          <View style={[styles.monsterLayer, styles.faceLayer]}>
-            <LottieView
-              autoPlay
-              loop
-              source={monsterFaceIdle}
-              style={styles.lottieFill}
-            />
-          </View>
-        </View>
-      </View>
+      <LayeredLottiePreview
+        bodySource={animation.idleBodySource}
+        faceSource={animation.idleFaceSource}
+        scale={animation.previewScale ?? 2.28}
+        size={size}
+      />
     );
   }
 
   return (
     <View style={[styles.container, { height: size, width: size }]}>
       <Image
-        source={evolutionImage}
+        source={evolutionVisual.imageSource}
         resizeMode="contain"
         style={[styles.image, styles.evolutionImage]}
       />
+    </View>
+  );
+}
+
+function LayeredLottiePreview({
+  bodySource,
+  faceSource,
+  scale,
+  size,
+}: {
+  bodySource: AnimationObject;
+  faceSource: AnimationObject;
+  scale: number;
+  size: number;
+}) {
+  const lottieSize = size * scale;
+
+  return (
+    <View style={[styles.container, { height: size, width: size }]}>
+      <View
+        pointerEvents="none"
+        style={[
+          styles.lottieWrap,
+          {
+            height: lottieSize,
+            width: lottieSize,
+          },
+        ]}
+      >
+        <View style={[styles.monsterLayer, styles.bodyLayer]}>
+          <LottieView
+            autoPlay
+            loop
+            source={bodySource}
+            style={styles.lottieFill}
+          />
+        </View>
+        <View style={[styles.monsterLayer, styles.faceLayer]}>
+          <LottieView
+            autoPlay
+            loop
+            source={faceSource}
+            style={styles.lottieFill}
+          />
+        </View>
+      </View>
     </View>
   );
 }

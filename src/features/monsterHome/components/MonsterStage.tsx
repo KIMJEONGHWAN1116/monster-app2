@@ -1,16 +1,16 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ViewStyle } from "react-native";
 import {
   Animated,
   Image,
   ImageBackground,
-  ImageSourcePropType,
   PanResponder,
   Platform,
   StyleSheet,
   View,
 } from "react-native";
 import LottieView from "lottie-react-native";
+import type { EvolutionAnimation, EvolutionVisual } from "../state/evolution";
 
 const stageBackground = require("../../../assets/images/home/monster-stage-background.png");
 const monsterBodyIdle = require("../../../assets/lottie/monster_body_idle.json");
@@ -23,24 +23,44 @@ const noBrowserPanStyle =
     : null;
 
 type MonsterStageProps = {
-  evolutionImage?: ImageSourcePropType;
+  evolutionVisual?: EvolutionVisual | null;
   width: number;
 };
 
 type MonsterMotion = "" | "jump" | "squash";
 
-export function MonsterStage({ evolutionImage, width }: MonsterStageProps) {
+export function MonsterStage({ evolutionVisual, width }: MonsterStageProps) {
   const [isBlinking, setIsBlinking] = useState(false);
+  const [isEvolutionTouched, setIsEvolutionTouched] = useState(false);
   const [motion, setMotion] = useState<MonsterMotion>("");
   const blinkRef = useRef<React.ElementRef<typeof LottieView>>(null);
+  const evolutionAnimationRef = useRef<EvolutionAnimation | null>(null);
+  const evolutionTouchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const translateY = useRef(new Animated.Value(0)).current;
   const scaleX = useRef(new Animated.Value(1)).current;
   const scaleY = useRef(new Animated.Value(1)).current;
 
+  const evolutionImage =
+    evolutionVisual?.kind === "image" ? evolutionVisual.imageSource : null;
+  const evolutionAnimation =
+    evolutionVisual?.kind === "lottie" ? evolutionVisual.animation : null;
+  evolutionAnimationRef.current = evolutionAnimation;
+
   const monsterAreaSize = width * 0.78;
-  const lottieSize = monsterAreaSize * 2.28;
+  const lottieSize = monsterAreaSize * (evolutionAnimation?.stageScale ?? 2.28);
   const monsterRenderHeight = evolutionImage ? monsterAreaSize * 1.2 : lottieSize;
   const monsterRenderWidth = evolutionImage ? monsterAreaSize * 1.02 : lottieSize;
+
+  useEffect(() => {
+    setIsEvolutionTouched(false);
+    return () => {
+      if (evolutionTouchTimerRef.current) {
+        clearTimeout(evolutionTouchTimerRef.current);
+      }
+    };
+  }, [evolutionVisual]);
 
   const resetTransform = () => {
     translateY.setValue(0);
@@ -61,6 +81,37 @@ export function MonsterStage({ evolutionImage, width }: MonsterStageProps) {
     setTimeout(() => {
       setIsBlinking(false);
     }, 700);
+  };
+
+  const clearEvolutionTouchTimer = () => {
+    if (!evolutionTouchTimerRef.current) return;
+    clearTimeout(evolutionTouchTimerRef.current);
+    evolutionTouchTimerRef.current = null;
+  };
+
+  const showEvolutionTouch = () => {
+    const animation = evolutionAnimationRef.current;
+    const hasTouchState =
+      Boolean(animation?.touchBodySource) || Boolean(animation?.touchFaceSource);
+
+    if (!hasTouchState) return;
+
+    clearEvolutionTouchTimer();
+    setIsEvolutionTouched(true);
+  };
+
+  const hideEvolutionTouchSoon = () => {
+    const animation = evolutionAnimationRef.current;
+    const hasTouchState =
+      Boolean(animation?.touchBodySource) || Boolean(animation?.touchFaceSource);
+
+    if (!hasTouchState) return;
+
+    clearEvolutionTouchTimer();
+    evolutionTouchTimerRef.current = setTimeout(() => {
+      setIsEvolutionTouched(false);
+      evolutionTouchTimerRef.current = null;
+    }, 650);
   };
 
   const runJump = () => {
@@ -210,6 +261,9 @@ export function MonsterStage({ evolutionImage, width }: MonsterStageProps) {
 
   const panResponder = useRef(
     PanResponder.create({
+      onPanResponderGrant: () => {
+        showEvolutionTouch();
+      },
       onStartShouldSetPanResponderCapture: () => true,
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponderCapture: () => true,
@@ -218,9 +272,12 @@ export function MonsterStage({ evolutionImage, width }: MonsterStageProps) {
       },
       onPanResponderRelease: (_, gestureState) => {
         const diffY = gestureState.dy;
+        hideEvolutionTouchSoon();
 
         if (Math.abs(diffY) < 10) {
-          handleBlink();
+          if (!evolutionAnimationRef.current) {
+            handleBlink();
+          }
           return;
         }
 
@@ -234,6 +291,8 @@ export function MonsterStage({ evolutionImage, width }: MonsterStageProps) {
         }
       },
       onPanResponderTerminate: () => {
+        clearEvolutionTouchTimer();
+        setIsEvolutionTouched(false);
         resetTransform();
         setMotion("");
       },
@@ -284,6 +343,36 @@ export function MonsterStage({ evolutionImage, width }: MonsterStageProps) {
               resizeMode="contain"
               style={styles.evolutionImage}
             />
+          ) : evolutionAnimation ? (
+            <>
+              <View pointerEvents="none" style={[styles.monsterLayer, styles.bodyLayer]}>
+                <LottieView
+                  autoPlay
+                  key={isEvolutionTouched ? "evolution-body-touch" : "evolution-body-idle"}
+                  loop
+                  source={
+                    isEvolutionTouched && evolutionAnimation.touchBodySource
+                      ? evolutionAnimation.touchBodySource
+                      : evolutionAnimation.idleBodySource
+                  }
+                  style={styles.lottieFill}
+                />
+              </View>
+
+              <View pointerEvents="none" style={[styles.monsterLayer, styles.faceLayer]}>
+                <LottieView
+                  autoPlay
+                  key={isEvolutionTouched ? "evolution-face-touch" : "evolution-face-idle"}
+                  loop
+                  source={
+                    isEvolutionTouched && evolutionAnimation.touchFaceSource
+                      ? evolutionAnimation.touchFaceSource
+                      : evolutionAnimation.idleFaceSource
+                  }
+                  style={styles.lottieFill}
+                />
+              </View>
+            </>
           ) : (
             <>
               <View pointerEvents="none" style={[styles.monsterLayer, styles.bodyLayer]}>
