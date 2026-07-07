@@ -29,6 +29,7 @@ export function MonsterPreview({ evolutionVisual, size }: MonsterPreviewProps) {
 
     return (
       <LayeredLottiePreview
+        armSource={animation.idleArmSource}
         bodySource={animation.idleBodySource}
         faceSource={animation.idleFaceSource}
         scale={animation.previewScale ?? 2.28}
@@ -49,11 +50,13 @@ export function MonsterPreview({ evolutionVisual, size }: MonsterPreviewProps) {
 }
 
 function LayeredLottiePreview({
+  armSource,
   bodySource,
   faceSource,
   scale,
   size,
 }: {
+  armSource?: AnimationObject;
   bodySource: AnimationObject;
   faceSource: AnimationObject;
   scale: number;
@@ -81,6 +84,16 @@ function LayeredLottiePreview({
             style={styles.lottieFill}
           />
         </View>
+        {armSource && (
+          <View style={[styles.monsterLayer, styles.armLayer]}>
+            <LottieView
+              autoPlay
+              loop
+              source={armSource}
+              style={styles.lottieFill}
+            />
+          </View>
+        )}
         <View style={[styles.monsterLayer, styles.faceLayer]}>
           <LottieView
             autoPlay
@@ -95,6 +108,9 @@ function LayeredLottiePreview({
 }
 
 const styles = StyleSheet.create({
+  armLayer: {
+    zIndex: 2,
+  },
   bodyLayer: {
     zIndex: 1,
   },
@@ -111,7 +127,7 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   faceLayer: {
-    zIndex: 2,
+    zIndex: 3,
   },
   lottieFill: {
     height: "100%",

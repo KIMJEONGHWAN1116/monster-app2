@@ -6,11 +6,12 @@ import { EmotionLogEntry } from "./emotionLog";
 export type EvolutionId = "anxiety" | "ikari" | "kanashimi";
 
 export type EvolutionAnimation = {
+  idleArmSource?: AnimationObject;
   idleBodySource: AnimationObject;
   idleFaceSource: AnimationObject;
   previewScale?: number;
   stageScale?: number;
-  touchBodySource?: AnimationObject;
+  touchArmSource?: AnimationObject;
   touchFaceSource?: AnimationObject;
 };
 
@@ -34,8 +35,9 @@ export type EvolutionChoice = {
 
 const anxietyEvolutionImage = require("../../../assets/images/evolution/anxiety-evolution-mint.png");
 const kanashimiEvolutionImage = require("../../../assets/images/evolution/kanashimi-evolution.png");
+const ikariDevilArmsIdle = require("../../../assets/lottie/evolution/ikari-devil-arms-idle.json") as AnimationObject;
+const ikariDevilArmsTouch = require("../../../assets/lottie/evolution/ikari-devil-arms-touch.json") as AnimationObject;
 const ikariDevilBodyIdle = require("../../../assets/lottie/evolution/ikari-devil-body-idle.json") as AnimationObject;
-const ikariDevilBodyTouch = require("../../../assets/lottie/evolution/ikari-devil-body-touch.json") as AnimationObject;
 const ikariDevilFaceAngry = require("../../../assets/lottie/evolution/ikari-devil-face-angry.json") as AnimationObject;
 const ikariDevilFaceIdle = require("../../../assets/lottie/evolution/ikari-devil-face-idle.json") as AnimationObject;
 
@@ -59,11 +61,12 @@ export const evolutionChoices: EvolutionChoice[] = [
     name: "いかりタイプ",
     visual: {
       animation: {
+        idleArmSource: ikariDevilArmsIdle,
         idleBodySource: ikariDevilBodyIdle,
         idleFaceSource: ikariDevilFaceIdle,
-        previewScale: 2.28,
-        stageScale: 2.28,
-        touchBodySource: ikariDevilBodyTouch,
+        previewScale: 3.7,
+        stageScale: 3.7,
+        touchArmSource: ikariDevilArmsTouch,
         touchFaceSource: ikariDevilFaceAngry,
       },
       kind: "lottie",

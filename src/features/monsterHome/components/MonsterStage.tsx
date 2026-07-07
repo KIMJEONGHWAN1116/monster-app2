@@ -92,7 +92,7 @@ export function MonsterStage({ evolutionVisual, width }: MonsterStageProps) {
   const showEvolutionTouch = () => {
     const animation = evolutionAnimationRef.current;
     const hasTouchState =
-      Boolean(animation?.touchBodySource) || Boolean(animation?.touchFaceSource);
+      Boolean(animation?.touchArmSource) || Boolean(animation?.touchFaceSource);
 
     if (!hasTouchState) return;
 
@@ -103,7 +103,7 @@ export function MonsterStage({ evolutionVisual, width }: MonsterStageProps) {
   const hideEvolutionTouchSoon = () => {
     const animation = evolutionAnimationRef.current;
     const hasTouchState =
-      Boolean(animation?.touchBodySource) || Boolean(animation?.touchFaceSource);
+      Boolean(animation?.touchArmSource) || Boolean(animation?.touchFaceSource);
 
     if (!hasTouchState) return;
 
@@ -348,16 +348,27 @@ export function MonsterStage({ evolutionVisual, width }: MonsterStageProps) {
               <View pointerEvents="none" style={[styles.monsterLayer, styles.bodyLayer]}>
                 <LottieView
                   autoPlay
-                  key={isEvolutionTouched ? "evolution-body-touch" : "evolution-body-idle"}
                   loop
-                  source={
-                    isEvolutionTouched && evolutionAnimation.touchBodySource
-                      ? evolutionAnimation.touchBodySource
-                      : evolutionAnimation.idleBodySource
-                  }
+                  source={evolutionAnimation.idleBodySource}
                   style={styles.lottieFill}
                 />
               </View>
+
+              {evolutionAnimation.idleArmSource && (
+                <View pointerEvents="none" style={[styles.monsterLayer, styles.armLayer]}>
+                  <LottieView
+                    autoPlay
+                    key={isEvolutionTouched ? "evolution-arm-touch" : "evolution-arm-idle"}
+                    loop
+                    source={
+                      isEvolutionTouched && evolutionAnimation.touchArmSource
+                        ? evolutionAnimation.touchArmSource
+                        : evolutionAnimation.idleArmSource
+                    }
+                    style={styles.lottieFill}
+                  />
+                </View>
+              )}
 
               <View pointerEvents="none" style={[styles.monsterLayer, styles.faceLayer]}>
                 <LottieView
@@ -427,6 +438,9 @@ export function MonsterStage({ evolutionVisual, width }: MonsterStageProps) {
 }
 
 const styles = StyleSheet.create({
+  armLayer: {
+    zIndex: 2,
+  },
   stage: {
     alignItems: "center",
     borderRadius: 34,
@@ -461,7 +475,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   faceLayer: {
-    zIndex: 2,
+    zIndex: 3,
   },
   lottieFill: {
     height: "100%",
