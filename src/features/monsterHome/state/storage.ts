@@ -3,6 +3,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { EmotionLogEntry } from "./emotionLog";
 import { initialMonsterState, MonsterState } from "./monsterState";
 import { MissionId } from "./missions";
+import {
+  isShopItemId,
+  isShopItemSlot,
+  ShopItemSlot,
+} from "./shopItems";
 
 const emotionLogsKey = "monster-app:emotion-logs";
 const monsterStateKey = "monster-app:monster-state";
@@ -49,6 +54,13 @@ export async function loadMonsterState() {
     const claimedMissionIds = normalizeMissionIds(
       (parsedMonster as { claimedMissionIds?: unknown }).claimedMissionIds
     );
+    const ownedItemIds = normalizeShopItemIds(
+      (parsedMonster as { ownedItemIds?: unknown }).ownedItemIds
+    );
+    const equippedItemIds = normalizeEquippedItemIds(
+      (parsedMonster as { equippedItemIds?: unknown }).equippedItemIds,
+      ownedItemIds
+    );
     const onakaPercent =
       typeof parsedMonster.onakaPercent === "number"
         ? Math.min(Math.max(parsedMonster.onakaPercent, 0), 100)
@@ -61,15 +73,44 @@ export async function loadMonsterState() {
     return {
       ...initialMonsterState,
       claimedMissionIds,
+      equippedItemIds,
       evolutionId,
       name: parsedMonster.name ?? initialMonsterState.name,
       onakaPercent,
+      ownedItemIds,
       points,
       registeredEvolutionIds,
     };
   } catch {
     return initialMonsterState;
   }
+}
+
+function normalizeShopItemIds(ids: unknown) {
+  if (!Array.isArray(ids)) return [];
+
+  return Array.from(new Set(ids.filter(isShopItemId)));
+}
+
+function normalizeEquippedItemIds(
+  equippedItemIds: unknown,
+  ownedItemIds: string[]
+): MonsterState["equippedItemIds"] {
+  if (!equippedItemIds || typeof equippedItemIds !== "object") return {};
+
+  return Object.entries(equippedItemIds).reduce<
+    Partial<Record<ShopItemSlot, string>>
+  >((result, [slot, itemId]) => {
+    if (
+      isShopItemSlot(slot) &&
+      isShopItemId(itemId) &&
+      ownedItemIds.includes(itemId)
+    ) {
+      result[slot] = itemId;
+    }
+
+    return result;
+  }, {});
 }
 
 function normalizeMissionIds(ids: unknown): MissionId[] {

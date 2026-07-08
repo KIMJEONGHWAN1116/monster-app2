@@ -12,6 +12,7 @@ import { MainTabScreen } from "./screens/MainTabScreen";
 import { MissionScreen } from "./screens/MissionScreen";
 import { MonsterDexScreen } from "./screens/MonsterDexScreen";
 import { MyPageScreen } from "./screens/MyPageScreen";
+import { ShopScreen } from "./screens/ShopScreen";
 import { createEmotionLog, EmotionLogEntry } from "./state/emotionLog";
 import {
   EvolutionChoice,
@@ -21,6 +22,7 @@ import {
 import { getMissionStatuses, MissionStatus } from "./state/missions";
 import { MainTabKey } from "./state/navigation";
 import { FeedEmotion, initialMonsterState } from "./state/monsterState";
+import { ShopItem, ShopItemSlot } from "./state/shopItems";
 import {
   loadEmotionLogs,
   loadMonsterState,
@@ -183,6 +185,51 @@ export function MonsterApp() {
     }));
   };
 
+  const buyShopItem = (item: ShopItem) => {
+    setMonster((currentMonster) => {
+      if (
+        currentMonster.ownedItemIds.includes(item.id) ||
+        currentMonster.points < item.price
+      ) {
+        return currentMonster;
+      }
+
+      return {
+        ...currentMonster,
+        ownedItemIds: [...currentMonster.ownedItemIds, item.id],
+        points: currentMonster.points - item.price,
+      };
+    });
+  };
+
+  const equipShopItem = (item: ShopItem) => {
+    setMonster((currentMonster) => {
+      if (!currentMonster.ownedItemIds.includes(item.id)) return currentMonster;
+
+      return {
+        ...currentMonster,
+        equippedItemIds: {
+          ...currentMonster.equippedItemIds,
+          [item.slot]: item.id,
+        },
+      };
+    });
+  };
+
+  const unequipShopSlot = (slot: ShopItemSlot) => {
+    setMonster((currentMonster) => {
+      if (!currentMonster.equippedItemIds[slot]) return currentMonster;
+
+      const nextEquippedItemIds = { ...currentMonster.equippedItemIds };
+      delete nextEquippedItemIds[slot];
+
+      return {
+        ...currentMonster,
+        equippedItemIds: nextEquippedItemIds,
+      };
+    });
+  };
+
   const resetAllData = () => {
     setEmotionLogs([]);
     setMonster(initialMonsterState);
@@ -260,14 +307,27 @@ export function MonsterApp() {
           onTabPress={openMainTab}
           theme={monsterTheme}
         />
+      ) : activeTab === "shop" ? (
+        <ShopScreen
+          activeTab={activeTab}
+          onBuyItem={buyShopItem}
+          onMogumoguPress={openFeedEmotion}
+          onTabPress={openMainTab}
+          ownedItemIds={monster.ownedItemIds}
+          points={monster.points}
+          theme={monsterTheme}
+        />
       ) : activeTab === "myPage" ? (
         <MyPageScreen
           activeTab={activeTab}
+          currentEvolution={currentEvolution}
           logCount={emotionLogs.length}
           monster={monster}
+          onEquipItem={equipShopItem}
           onMogumoguPress={openFeedEmotion}
           onResetData={resetAllData}
           onTabPress={openMainTab}
+          onUnequipSlot={unequipShopSlot}
           theme={monsterTheme}
         />
       ) : (

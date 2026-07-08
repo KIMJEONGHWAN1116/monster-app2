@@ -16,5 +16,5 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
-, "src/components/StatusBarCard.jsx", "src/components/BottomNav.jsx", "src/components/Header.jsx", "src/styles/colors.js"  ]
+  ]
 }
