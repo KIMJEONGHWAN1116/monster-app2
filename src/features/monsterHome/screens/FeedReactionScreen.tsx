@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import {
   Pressable,
@@ -10,6 +11,7 @@ import {
 } from "react-native";
 
 import { MonsterPreview } from "../components/MonsterPreview";
+import { generateGeminiMonsterReaction } from "../services/geminiReaction";
 import { EvolutionChoice } from "../state/evolution";
 import { FeedEmotion } from "../state/monsterState";
 import { MonsterTheme, monsterTheme } from "../styles/theme";
@@ -38,7 +40,34 @@ export function FeedReactionScreen({
   const { height, width } = useWindowDimensions();
   const contentWidth = Math.min(width - 44, 430);
   const monsterSize = Math.min(contentWidth * 0.58, height * 0.22, 240);
-  const reactionText = getReactionText(emotion.feeling);
+  const fallbackReactionText = getReactionText(emotion.feeling);
+  const [reactionText, setReactionText] = useState(fallbackReactionText);
+  const [isReactionLoading, setIsReactionLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    setReactionText(fallbackReactionText);
+    setIsReactionLoading(true);
+
+    generateGeminiMonsterReaction(emotion)
+      .then((geminiReaction) => {
+        if (!isMounted) return;
+        setReactionText(geminiReaction ?? fallbackReactionText);
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setReactionText(fallbackReactionText);
+      })
+      .finally(() => {
+        if (!isMounted) return;
+        setIsReactionLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [emotion, fallbackReactionText]);
 
   return (
     <SafeAreaView
@@ -167,7 +196,9 @@ export function FeedReactionScreen({
             ]}
           >
             <Text style={styles.reactionHeart}>♥</Text>
-            <Text style={styles.reactionText}>{reactionText}</Text>
+            <Text style={styles.reactionText}>
+              {isReactionLoading ? "モンスターが味わっています..." : reactionText}
+            </Text>
           </View>
 
           <View style={styles.actionRow}>
@@ -217,13 +248,14 @@ export function FeedReactionScreen({
 
 function getReactionText(feeling: string) {
   const reactionByFeeling: Record<string, string> = {
-    かなしい: "これは... こころが少し疲れたモヤモヤだね？",
+    かなしい: "これは... こころが少し沈んだモヤモヤだね？",
     くやしい: "これは... がんばったから残ったモヤモヤだね？",
     こわい: "これは... ひとりで抱えるには重いモヤモヤだね？",
+    心配: "これは... 先のことを考えすぎたモヤモヤだね？",
+    怒り: "これは... 火花みたいに熱いモヤモヤだね？",
     さみしい: "これは... 誰かに気づいてほしいモヤモヤだね？",
-    つかれた: "これは... 休みたい気持ちのモヤモヤだね？",
+    つらい: "これは... そっと休ませたいモヤモヤだね？",
     イライラ: "これは... ぎゅっと力が入ったモヤモヤだね？",
-    モヤモヤ: "これは... 言葉になる前のモヤモヤだね？",
     不安: "これは... 明日のことを考えたモヤモヤだね？",
   };
 

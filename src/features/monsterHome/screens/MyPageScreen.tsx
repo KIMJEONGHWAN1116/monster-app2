@@ -1,45 +1,53 @@
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
+import type { ViewStyle } from "react-native";
 import {
-    Image,
-    Modal,
-    PanResponder,
-    Pressable,
-    SafeAreaView,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    useWindowDimensions,
-    View,
-    type LayoutChangeEvent,
+  Animated,
+  Image,
+  Modal,
+  PanResponder,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  useWindowDimensions,
+  View,
+  type LayoutChangeEvent,
 } from "react-native";
 
 import { BottomTabBar } from "../components/BottomTabBar";
-import { DressedMonsterPreview } from "../components/DressedMonsterPreview";
 import { HomeHeader } from "../components/HomeHeader";
+import { MonsterPreview } from "../components/MonsterPreview";
 import { EvolutionChoice } from "../state/evolution";
 import { MonsterState } from "../state/monsterState";
 import { MainTabKey } from "../state/navigation";
 import {
-    getEquippedShopItems,
-    ShopItem,
-    shopItems,
-    ShopItemSlot,
-    slotLabels,
+  getPlacedShopItems,
+  RoomItemPlacement,
+  RoomItemPlacements,
+  ShopItem,
+  shopItems,
+  slotLabels,
 } from "../state/shopItems";
 import { MonsterTheme, monsterTheme } from "../styles/theme";
+
+const noBrowserPanStyle =
+  Platform.OS === "web"
+    ? ({ touchAction: "none" } as unknown as ViewStyle)
+    : null;
 
 type MyPageScreenProps = {
   activeTab: MainTabKey;
   currentEvolution: EvolutionChoice | null;
   logCount: number;
   monster: MonsterState;
-  onEquipItem: (item: ShopItem) => void;
   onMogumoguPress: () => void;
   onResetData: () => void;
+  onSaveRoom: (placements: RoomItemPlacements) => void;
   onTabPress: (tab: MainTabKey) => void;
-  onUnequipSlot: (slot: ShopItemSlot) => void;
   theme?: MonsterTheme;
 };
 
@@ -48,25 +56,31 @@ export function MyPageScreen({
   currentEvolution,
   logCount,
   monster,
-  onEquipItem,
   onMogumoguPress,
   onResetData,
+  onSaveRoom,
   onTabPress,
-  onUnequipSlot,
   theme = monsterTheme,
 }: MyPageScreenProps) {
   const { width } = useWindowDimensions();
   const [bgmVolume, setBgmVolume] = useState(0.75);
   const [brightness, setBrightness] = useState(0.75);
+  const [draftPlacements, setDraftPlacements] = useState<RoomItemPlacements>(
+    monster.roomItemPlacements
+  );
   const [isConfirmingReset, setIsConfirmingReset] = useState(false);
+  const [isDraggingItem, setIsDraggingItem] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [monsterVoiceEnabled, setMonsterVoiceEnabled] = useState(true);
   const [notificationEnabled, setNotificationEnabled] = useState(true);
+  const [savedMessage, setSavedMessage] = useState("");
   const [seVolume, setSeVolume] = useState(0.72);
-  const [talkFrequency, setTalkFrequency] = useState<"low" | "normal" | "high" | "loud">("normal");
+  const [talkFrequency, setTalkFrequency] =
+    useState<"low" | "normal" | "high" | "loud">("normal");
+  const saveMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentWidth = Math.min(width - 32, 430);
   const closetItemWidth = (contentWidth - 12) / 2;
-  const monsterPreviewSize = Math.min(contentWidth * 0.62, 240);
+  const roomStageSize = Math.min(contentWidth * 0.72, 286);
   const ownedSet = useMemo(
     () => new Set(monster.ownedItemIds),
     [monster.ownedItemIds]
@@ -75,9 +89,26 @@ export function MyPageScreen({
     () => shopItems.filter((item) => ownedSet.has(item.id)),
     [ownedSet]
   );
-  const equippedItems = useMemo(
-    () => getEquippedShopItems(monster.equippedItemIds),
-    [monster.equippedItemIds]
+  const placedItems = useMemo(
+    () => getPlacedShopItems(draftPlacements),
+    [draftPlacements]
+  );
+  const hasRoomChanges = useMemo(
+    () => !areRoomPlacementsEqual(draftPlacements, monster.roomItemPlacements),
+    [draftPlacements, monster.roomItemPlacements]
+  );
+
+  useEffect(() => {
+    setDraftPlacements(monster.roomItemPlacements);
+  }, [monster.roomItemPlacements]);
+
+  useEffect(
+    () => () => {
+      if (saveMessageTimerRef.current) {
+        clearTimeout(saveMessageTimerRef.current);
+      }
+    },
+    []
   );
   const talkFrequencyOptions = [
     { label: "低", value: "low" as const },
@@ -104,6 +135,52 @@ export function MyPageScreen({
     onResetData();
   };
 
+  const toggleRoomItem = (item: ShopItem) => {
+    setSavedMessage("");
+    setDraftPlacements((currentPlacements) => {
+      if (currentPlacements[item.id]) {
+        const nextPlacements = { ...currentPlacements };
+        delete nextPlacements[item.id];
+        return nextPlacements;
+      }
+
+      return {
+        ...currentPlacements,
+        [item.id]: item.defaultPlacement,
+      };
+    });
+  };
+
+  const updateRoomItemPlacement = (
+    itemId: string,
+    placement: RoomItemPlacement
+  ) => {
+    setSavedMessage("");
+    setDraftPlacements((currentPlacements) => ({
+      ...currentPlacements,
+      [itemId]: placement,
+    }));
+  };
+
+  const resetRoomDraft = () => {
+    setSavedMessage("");
+    setDraftPlacements(monster.roomItemPlacements);
+  };
+
+  const saveRoom = () => {
+    onSaveRoom(draftPlacements);
+    setSavedMessage("保存しました");
+
+    if (saveMessageTimerRef.current) {
+      clearTimeout(saveMessageTimerRef.current);
+    }
+
+    saveMessageTimerRef.current = setTimeout(() => {
+      setSavedMessage("");
+      saveMessageTimerRef.current = null;
+    }, 1600);
+  };
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -112,6 +189,7 @@ export function MyPageScreen({
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
+        scrollEnabled={!isDraggingItem}
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.content, { width: contentWidth }]}>
@@ -179,7 +257,7 @@ export function MyPageScreen({
             <View style={styles.roomHeader}>
               <View>
                 <Text style={styles.roomTitle}>ルーム</Text>
-                <Text style={styles.roomSubtitle}>おきがえ</Text>
+                <Text style={styles.roomSubtitle}>ドラッグしておきがえ</Text>
               </View>
               <View
                 style={[
@@ -204,44 +282,90 @@ export function MyPageScreen({
                 { backgroundColor: theme.colors.lavenderPale },
               ]}
             >
-              <DressedMonsterPreview
-                equippedItemIds={monster.equippedItemIds}
-                evolutionVisual={currentEvolution?.visual}
-                size={monsterPreviewSize}
-              />
+              <View
+                style={[
+                  styles.roomPreviewFrame,
+                  noBrowserPanStyle,
+                  { height: roomStageSize, width: roomStageSize },
+                ]}
+              >
+                <MonsterPreview
+                  evolutionVisual={currentEvolution?.visual}
+                  size={roomStageSize}
+                />
+
+                {placedItems.map(({ item, placement }) => (
+                  <DraggableRoomItem
+                    item={item}
+                    key={item.id}
+                    onChange={(nextPlacement) =>
+                      updateRoomItemPlacement(item.id, nextPlacement)
+                    }
+                    onDragEnd={() => setIsDraggingItem(false)}
+                    onDragStart={() => setIsDraggingItem(true)}
+                    placement={placement}
+                    stageSize={roomStageSize}
+                  />
+                ))}
+              </View>
             </View>
 
-            <View style={styles.equippedRow}>
-              {equippedItems.length === 0 ? (
-                <Text style={styles.emptyEquippedText}>まだ着ていません</Text>
-              ) : (
-                equippedItems.map((item) => (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${item.name}をはずす`}
-                    key={item.id}
-                    onPress={() => onUnequipSlot(item.slot)}
-                    style={({ pressed }) => [
-                      styles.equippedChip,
-                      {
-                        backgroundColor: theme.colors.lavenderPale,
-                        borderColor: theme.colors.lavenderTrack,
-                      },
-                      pressed && styles.buttonPressed,
-                    ]}
-                  >
-                    <Text style={[styles.equippedChipText, { color: theme.colors.lavender }]}>
-                      {slotLabels[item.slot]}: {item.name}
-                    </Text>
-                    <MaterialCommunityIcons
-                      name="close"
-                      size={16}
-                      color={theme.colors.lavender}
-                    />
-                  </Pressable>
-                ))
-              )}
+            <View style={styles.roomActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="ルームを元に戻す"
+                disabled={!hasRoomChanges}
+                onPress={resetRoomDraft}
+                style={({ pressed }) => [
+                  styles.roomActionButton,
+                  {
+                    backgroundColor: "rgba(255, 255, 255, 0.76)",
+                    borderColor: theme.colors.lavenderTrack,
+                    opacity: hasRoomChanges ? 1 : 0.48,
+                  },
+                  pressed && hasRoomChanges && styles.buttonPressed,
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name="undo-variant"
+                  size={22}
+                  color={theme.colors.lavender}
+                />
+                <Text style={[styles.roomActionText, { color: theme.colors.lavender }]}>
+                  もどす
+                </Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="ルームを保存する"
+                onPress={saveRoom}
+                style={({ pressed }) => [
+                  styles.okButton,
+                  {
+                    backgroundColor: theme.colors.lavender,
+                  },
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name="check"
+                  size={23}
+                  color={theme.colors.white}
+                />
+                <Text style={styles.okButtonText}>OK</Text>
+              </Pressable>
             </View>
+
+            {savedMessage ? (
+              <Text style={[styles.savedMessage, { color: theme.colors.lavender }]}>
+                {savedMessage}
+              </Text>
+            ) : (
+              <Text style={styles.roomHint}>
+                クローゼットから選んで、好きな場所へ動かせます。
+              </Text>
+            )}
           </View>
 
           <View style={styles.sectionHeader}>
@@ -272,23 +396,21 @@ export function MyPageScreen({
           ) : (
             <View style={styles.closetGrid}>
               {ownedItems.map((item) => {
-                const isEquipped = monster.equippedItemIds[item.slot] === item.id;
+                const isPlaced = Boolean(draftPlacements[item.id]);
 
                 return (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityState={{ selected: isEquipped }}
+                    accessibilityState={{ selected: isPlaced }}
                     key={item.id}
-                    onPress={() =>
-                      isEquipped ? onUnequipSlot(item.slot) : onEquipItem(item)
-                    }
+                    onPress={() => toggleRoomItem(item)}
                     style={({ pressed }) => [
                       styles.closetItem,
                       {
-                        backgroundColor: isEquipped
+                        backgroundColor: isPlaced
                           ? theme.colors.lavenderPale
                           : "rgba(255, 255, 255, 0.78)",
-                        borderColor: isEquipped
+                        borderColor: isPlaced
                           ? theme.colors.lavender
                           : theme.colors.lavenderTrack,
                         width: closetItemWidth,
@@ -306,13 +428,14 @@ export function MyPageScreen({
                     <Text numberOfLines={1} style={styles.closetItemName}>
                       {item.name}
                     </Text>
+                    <Text style={styles.closetItemSlot}>{slotLabels[item.slot]}</Text>
                     <Text
                       style={[
                         styles.closetItemAction,
                         { color: theme.colors.lavender },
                       ]}
                     >
-                      {isEquipped ? "着てる" : "着せる"}
+                      {isPlaced ? "置いた" : "置く"}
                     </Text>
                   </Pressable>
                 );
@@ -594,11 +717,129 @@ function SettingRow({
     <View style={styles.settingRow}>
       <View style={styles.settingTextBlock}>
         <Text style={styles.settingLabel}>{label}</Text>
-        {description ? <Text style={styles.settingDescription}>{description}</Text> : null}
+        {description ? (
+          <Text style={styles.settingDescription}>{description}</Text>
+        ) : null}
       </View>
       <Switch onValueChange={onValueChange} value={value} />
     </View>
   );
+}
+
+function DraggableRoomItem({
+  item,
+  onChange,
+  onDragEnd,
+  onDragStart,
+  placement,
+  stageSize,
+}: {
+  item: ShopItem;
+  onChange: (placement: RoomItemPlacement) => void;
+  onDragEnd: () => void;
+  onDragStart: () => void;
+  placement: RoomItemPlacement;
+  stageSize: number;
+}) {
+  const pan = useRef(new Animated.ValueXY()).current;
+  const itemWidth = stageSize * placement.width;
+  const itemHeight = stageSize * placement.height;
+  const left = stageSize * placement.left;
+  const top = stageSize * placement.top;
+
+  useEffect(() => {
+    pan.setValue({ x: 0, y: 0 });
+  }, [pan, placement.left, placement.top]);
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponderCapture: () => true,
+        onPanResponderGrant: () => {
+          onDragStart();
+          pan.setValue({ x: 0, y: 0 });
+        },
+        onPanResponderMove: (_, gestureState) => {
+          pan.setValue({ x: gestureState.dx, y: gestureState.dy });
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          pan.setValue({ x: 0, y: 0 });
+          onDragEnd();
+          onChange({
+            ...placement,
+            left: clamp((left + gestureState.dx) / stageSize, -0.14, 1.08),
+            top: clamp((top + gestureState.dy) / stageSize, -0.14, 1.08),
+          });
+        },
+        onPanResponderTerminate: () => {
+          pan.setValue({ x: 0, y: 0 });
+          onDragEnd();
+        },
+        onPanResponderTerminationRequest: () => false,
+        onShouldBlockNativeResponder: () => true,
+        onStartShouldSetPanResponder: () => true,
+        onStartShouldSetPanResponderCapture: () => true,
+      }),
+    [left, onChange, onDragEnd, onDragStart, pan, placement, stageSize, top]
+  );
+
+  return (
+    <Animated.View
+      {...panResponder.panHandlers}
+      style={[
+        styles.draggableItem,
+        noBrowserPanStyle,
+        {
+          height: itemHeight,
+          left,
+          top,
+          transform: [
+            ...pan.getTranslateTransform(),
+            ...(placement.rotate ? [{ rotate: placement.rotate }] : []),
+          ],
+          width: itemWidth,
+          zIndex: placement.zIndex,
+        },
+      ]}
+    >
+      <Image
+        resizeMode="contain"
+        source={item.imageSource}
+        style={styles.draggableImage}
+      />
+    </Animated.View>
+  );
+}
+
+function areRoomPlacementsEqual(
+  leftPlacements: RoomItemPlacements,
+  rightPlacements: RoomItemPlacements
+) {
+  const leftKeys = Object.keys(leftPlacements).sort();
+  const rightKeys = Object.keys(rightPlacements).sort();
+
+  if (leftKeys.length !== rightKeys.length) return false;
+
+  return leftKeys.every((key, index) => {
+    if (key !== rightKeys[index]) return false;
+
+    const leftPlacement = leftPlacements[key];
+    const rightPlacement = rightPlacements[key];
+
+    return (
+      leftPlacement.height === rightPlacement.height &&
+      leftPlacement.left === rightPlacement.left &&
+      leftPlacement.rotate === rightPlacement.rotate &&
+      leftPlacement.top === rightPlacement.top &&
+      leftPlacement.width === rightPlacement.width &&
+      leftPlacement.zIndex === rightPlacement.zIndex
+    );
+  });
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
 }
 
 const styles = StyleSheet.create({
@@ -619,12 +860,12 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   closetImage: {
-    height: "86%",
-    width: "86%",
+    height: "90%",
+    width: "90%",
   },
   closetImageFrame: {
     alignItems: "center",
-    height: 92,
+    height: 98,
     justifyContent: "center",
     width: "100%",
   },
@@ -643,6 +884,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "900",
   },
+  closetItemSlot: {
+    color: monsterTheme.colors.muted,
+    fontSize: 12,
+    fontWeight: "800",
+    marginTop: 2,
+  },
   container: {
     flex: 1,
     overflow: "hidden",
@@ -650,6 +897,13 @@ const styles = StyleSheet.create({
   content: {
     alignSelf: "center",
     gap: 16,
+  },
+  draggableImage: {
+    height: "100%",
+    width: "100%",
+  },
+  draggableItem: {
+    position: "absolute",
   },
   emptyCloset: {
     alignItems: "center",
@@ -668,32 +922,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "900",
     marginTop: 10,
-  },
-  emptyEquippedText: {
-    color: monsterTheme.colors.muted,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  equippedChip: {
-    alignItems: "center",
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 6,
-    minHeight: 34,
-    paddingHorizontal: 12,
-  },
-  equippedChipText: {
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  equippedRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    justifyContent: "center",
-    marginTop: 12,
-    minHeight: 34,
   },
   brightnessButton: {
     alignItems: "center",
@@ -795,6 +1023,20 @@ const styles = StyleSheet.create({
     fontSize: 23,
     fontWeight: "900",
     textAlign: "center",
+  },
+  okButton: {
+    alignItems: "center",
+    borderRadius: 999,
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 48,
+  },
+  okButtonText: {
+    color: monsterTheme.colors.white,
+    fontSize: 17,
+    fontWeight: "900",
   },
   profileCard: {
     alignItems: "center",
@@ -913,6 +1155,25 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "900",
   },
+  roomActionButton: {
+    alignItems: "center",
+    borderRadius: 999,
+    borderWidth: 1,
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 48,
+  },
+  roomActionText: {
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  roomActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 14,
+  },
   roomCard: {
     borderRadius: 28,
     borderWidth: 1,
@@ -923,6 +1184,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 14,
+  },
+  roomHint: {
+    color: monsterTheme.colors.muted,
+    fontSize: 13,
+    fontWeight: "800",
+    marginTop: 10,
+    textAlign: "center",
   },
   roomPointPill: {
     alignItems: "center",
@@ -936,11 +1204,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "900",
   },
+  roomPreviewFrame: {
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "visible",
+  },
   roomStage: {
     alignItems: "center",
     borderRadius: 26,
     justifyContent: "center",
-    minHeight: 250,
+    minHeight: 304,
     overflow: "visible",
   },
   roomSubtitle: {
@@ -953,6 +1226,12 @@ const styles = StyleSheet.create({
     color: monsterTheme.colors.ink,
     fontSize: 25,
     fontWeight: "900",
+  },
+  savedMessage: {
+    fontSize: 13,
+    fontWeight: "900",
+    marginTop: 10,
+    textAlign: "center",
   },
   scrollContent: {
     paddingBottom: 132,

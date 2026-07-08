@@ -9,7 +9,6 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { BottomTabBar } from "../components/BottomTabBar";
-import { FeedButton } from "../components/FeedButton";
 import { HomeHeader } from "../components/HomeHeader";
 import { HungerCard } from "../components/HungerCard";
 import { MonsterStage } from "../components/MonsterStage";
@@ -20,11 +19,9 @@ import { MonsterTheme, monsterTheme } from "../styles/theme";
 
 type HomeScreenProps = {
   activeTab: MainTabKey;
-  canEvolve: boolean;
   currentEvolution: EvolutionChoice | null;
   monster: MonsterState;
   onDexPress: () => void;
-  onEvolutionPress: () => void;
   onMissionPress: () => void;
   onMogumoguPress: () => void;
   onTabPress: (tab: MainTabKey) => void;
@@ -33,11 +30,9 @@ type HomeScreenProps = {
 
 export function HomeScreen({
   activeTab,
-  canEvolve,
   currentEvolution,
   monster,
   onDexPress,
-  onEvolutionPress,
   onMissionPress,
   onMogumoguPress,
   onTabPress,
@@ -55,8 +50,7 @@ export function HomeScreen({
     (isCompactHeight ? 30 : 36) +
     (isCompactHeight ? 58 : 72) +
     58 +
-    (canEvolve ? (isCompactHeight ? 58 : 72) : 0) +
-    contentGap * (canEvolve ? 4 : 3);
+    contentGap * 3;
   const stageWidth = Math.min(
     contentWidth,
     Math.max(isCompactHeight ? 172 : 220, (height - estimatedFixedHeight) / 0.92)
@@ -96,6 +90,7 @@ export function HomeScreen({
           </Text>
           <MonsterStage
             evolutionVisual={currentEvolution?.visual}
+            roomItemPlacements={monster.roomItemPlacements}
             width={stageWidth}
           />
           <HungerCard
@@ -165,15 +160,6 @@ export function HomeScreen({
               </View>
             </Pressable>
           </View>
-
-          {canEvolve && (
-            <FeedButton
-              compact={isCompactHeight}
-              label="進化しそう！"
-              onPress={onEvolutionPress}
-              theme={theme}
-            />
-          )}
         </View>
       </View>
 

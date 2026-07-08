@@ -14,21 +14,9 @@ import {
 } from "react-native";
 
 import { MonsterPreview } from "../components/MonsterPreview";
-import { EvolutionChoice } from "../state/evolution";
+import { EvolutionChoice, feedFeelingLabels } from "../state/evolution";
 import { FeedEmotion } from "../state/monsterState";
 import { MonsterTheme, monsterTheme } from "../styles/theme";
-
-const feelings = [
-  "モヤモヤ",
-  "かなしい",
-  "イライラ",
-  "不安",
-  "つかれた",
-  "さみしい",
-  "くやしい",
-  "こわい",
-  "その他",
-];
 
 type FeedEmotionScreenProps = {
   currentEvolution: EvolutionChoice | null;
@@ -186,7 +174,7 @@ export function FeedEmotionScreen({
             <Text style={styles.sectionTitle}>どんな気持ち？</Text>
 
             <View style={styles.feelingGrid}>
-              {feelings.map((feeling) => {
+              {feedFeelingLabels.map((feeling) => {
                 const isSelected = selectedFeeling === feeling;
 
                 return (

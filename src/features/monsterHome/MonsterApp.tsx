@@ -3,8 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 
 import { LaunchScreen } from "./components/LaunchScreen";
+import { AutoEvolutionScreen } from "./screens/AutoEvolutionScreen";
 import { EmotionLogScreen } from "./screens/EmotionLogScreen";
-import { EvolutionScreen } from "./screens/EvolutionScreen";
 import { FeedEmotionScreen } from "./screens/FeedEmotionScreen";
 import { FeedReactionScreen } from "./screens/FeedReactionScreen";
 import { HomeScreen } from "./screens/HomeScreen";
@@ -15,14 +15,14 @@ import { MyPageScreen } from "./screens/MyPageScreen";
 import { ShopScreen } from "./screens/ShopScreen";
 import { createEmotionLog, EmotionLogEntry } from "./state/emotionLog";
 import {
-    EvolutionChoice,
-    getEvolutionById,
-    getEvolutionCandidates,
+  EvolutionChoice,
+  getDominantEvolution,
+  getEvolutionById,
 } from "./state/evolution";
 import { getMissionStatuses, MissionStatus } from "./state/missions";
 import { FeedEmotion, initialMonsterState } from "./state/monsterState";
 import { MainTabKey } from "./state/navigation";
-import { ShopItem, ShopItemSlot } from "./state/shopItems";
+import { RoomItemPlacements, ShopItem } from "./state/shopItems";
 import {
     loadEmotionLogs,
     loadMonsterState,
@@ -37,7 +37,7 @@ type AppMode =
   | "main"
   | "feedEmotion"
   | "feedReaction"
-  | "evolution"
+  | "autoEvolution"
   | "dex"
   | "mission";
 
@@ -54,19 +54,16 @@ export function MonsterApp() {
   const [hasLoadedMonster, setHasLoadedMonster] = useState(false);
   const [monster, setMonster] = useState(initialMonsterState);
   const [lastFeedResult, setLastFeedResult] = useState<FeedResult | null>(null);
+  const [pendingEvolution, setPendingEvolution] =
+    useState<EvolutionChoice | null>(null);
   const currentEvolution = useMemo(
     () => getEvolutionById(monster.evolutionId),
     [monster.evolutionId]
-  );
-  const evolutionCandidates = useMemo(
-    () => getEvolutionCandidates(emotionLogs),
-    [emotionLogs]
   );
   const missions = useMemo(
     () => getMissionStatuses(emotionLogs, monster),
     [emotionLogs, monster]
   );
-  const canEvolve = monster.onakaPercent >= 100;
 
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;
@@ -135,6 +132,28 @@ export function MonsterApp() {
     saveMonsterState(monster);
   }, [hasLoadedMonster, monster]);
 
+  useEffect(() => {
+    if (
+      !hasLoadedLogs ||
+      !hasLoadedMonster ||
+      mode !== "main" ||
+      monster.onakaPercent < 100 ||
+      pendingEvolution
+    ) {
+      return;
+    }
+
+    setPendingEvolution(getDominantEvolution(emotionLogs));
+    setMode("autoEvolution");
+  }, [
+    emotionLogs,
+    hasLoadedLogs,
+    hasLoadedMonster,
+    mode,
+    monster.onakaPercent,
+    pendingEvolution,
+  ]);
+
   const openMainTab = (tab: MainTabKey) => {
     setActiveTab(tab);
     setMode("main");
@@ -146,17 +165,23 @@ export function MonsterApp() {
 
   const feedMonster = (emotion: FeedEmotion) => {
     const nextLog = createEmotionLog(emotion);
-    const gainedPercent = Math.max(
-      0,
-      Math.min(30, 100 - monster.onakaPercent)
-    );
+    const nextLogs = [nextLog, ...emotionLogs];
+    const gainedPercent = Math.max(0, Math.min(30, 100 - monster.onakaPercent));
+    const nextOnakaPercent = Math.min(monster.onakaPercent + 30, 100);
 
     setLastFeedResult({ emotion, gainedPercent });
-    setEmotionLogs((currentLogs) => [nextLog, ...currentLogs]);
+    setEmotionLogs(nextLogs);
     setMonster((currentMonster) => ({
       ...currentMonster,
       onakaPercent: Math.min(currentMonster.onakaPercent + 30, 100),
     }));
+
+    if (nextOnakaPercent >= 100) {
+      setPendingEvolution(getDominantEvolution(nextLogs));
+      setMode("autoEvolution");
+      return;
+    }
+
     setMode("feedReaction");
   };
 
@@ -172,6 +197,7 @@ export function MonsterApp() {
         new Set([...currentMonster.registeredEvolutionIds, evolution.id])
       ),
     }));
+    setPendingEvolution(null);
     openMainTab("home");
   };
 
@@ -204,30 +230,18 @@ export function MonsterApp() {
     });
   };
 
-  const equipShopItem = (item: ShopItem) => {
+  const saveRoomItemPlacements = (roomItemPlacements: RoomItemPlacements) => {
     setMonster((currentMonster) => {
-      if (!currentMonster.ownedItemIds.includes(item.id)) return currentMonster;
+      const savedPlacements = Object.fromEntries(
+        Object.entries(roomItemPlacements).filter(([itemId]) =>
+          currentMonster.ownedItemIds.includes(itemId)
+        )
+      );
 
       return {
         ...currentMonster,
-        equippedItemIds: {
-          ...currentMonster.equippedItemIds,
-          [item.slot]: item.id,
-        },
-      };
-    });
-  };
-
-  const unequipShopSlot = (slot: ShopItemSlot) => {
-    setMonster((currentMonster) => {
-      if (!currentMonster.equippedItemIds[slot]) return currentMonster;
-
-      const nextEquippedItemIds = { ...currentMonster.equippedItemIds };
-      delete nextEquippedItemIds[slot];
-
-      return {
-        ...currentMonster,
-        equippedItemIds: nextEquippedItemIds,
+        equippedItemIds: {},
+        roomItemPlacements: savedPlacements,
       };
     });
   };
@@ -236,6 +250,7 @@ export function MonsterApp() {
     setEmotionLogs([]);
     setMonster(initialMonsterState);
     setLastFeedResult(null);
+    setPendingEvolution(null);
     setActiveTab("home");
     setMode("launch");
     void resetStoredAppData();
@@ -243,7 +258,7 @@ export function MonsterApp() {
 
   return (
     <View style={styles.appRoot}>
-      <StatusBar style={mode === "evolution" ? "light" : "dark"} />
+      <StatusBar style="dark" />
       {mode === "launch" ? (
         <LaunchScreen onStart={() => openMainTab("home")} />
       ) : mode === "feedEmotion" ? (
@@ -264,12 +279,10 @@ export function MonsterApp() {
           onGoLog={() => openMainTab("emotionLog")}
           theme={monsterTheme}
         />
-      ) : mode === "evolution" ? (
-        <EvolutionScreen
-          candidates={evolutionCandidates}
-          onBack={() => openMainTab("home")}
-          onClose={() => openMainTab("home")}
-          onSelect={completeEvolution}
+      ) : mode === "autoEvolution" && pendingEvolution ? (
+        <AutoEvolutionScreen
+          evolution={pendingEvolution}
+          onComplete={() => completeEvolution(pendingEvolution)}
           theme={monsterTheme}
         />
       ) : mode === "dex" ? (
@@ -292,11 +305,9 @@ export function MonsterApp() {
       ) : activeTab === "home" ? (
         <HomeScreen
           activeTab={activeTab}
-          canEvolve={canEvolve}
           currentEvolution={currentEvolution}
           monster={monster}
           onDexPress={() => setMode("dex")}
-          onEvolutionPress={() => setMode("evolution")}
           onMissionPress={() => setMode("mission")}
           onMogumoguPress={openFeedEmotion}
           onTabPress={openMainTab}
@@ -326,11 +337,10 @@ export function MonsterApp() {
           currentEvolution={currentEvolution}
           logCount={emotionLogs.length}
           monster={monster}
-          onEquipItem={equipShopItem}
           onMogumoguPress={openFeedEmotion}
           onResetData={resetAllData}
+          onSaveRoom={saveRoomItemPlacements}
           onTabPress={openMainTab}
-          onUnequipSlot={unequipShopSlot}
           theme={monsterTheme}
         />
       ) : (

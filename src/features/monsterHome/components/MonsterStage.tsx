@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import LottieView from "lottie-react-native";
 import type { EvolutionAnimation, EvolutionVisual } from "../state/evolution";
+import { getPlacedShopItems, RoomItemPlacements } from "../state/shopItems";
 
 const stageBackground = require("../../../assets/images/home/monster-stage-background.png");
 const monsterBodyIdle = require("../../../assets/lottie/monster_body_idle.json");
@@ -24,12 +25,17 @@ const noBrowserPanStyle =
 
 type MonsterStageProps = {
   evolutionVisual?: EvolutionVisual | null;
+  roomItemPlacements?: RoomItemPlacements;
   width: number;
 };
 
 type MonsterMotion = "" | "jump" | "squash";
 
-export function MonsterStage({ evolutionVisual, width }: MonsterStageProps) {
+export function MonsterStage({
+  evolutionVisual,
+  roomItemPlacements = {},
+  width,
+}: MonsterStageProps) {
   const [isBlinking, setIsBlinking] = useState(false);
   const [isEvolutionTouched, setIsEvolutionTouched] = useState(false);
   const [motion, setMotion] = useState<MonsterMotion>("");
@@ -52,6 +58,7 @@ export function MonsterStage({ evolutionVisual, width }: MonsterStageProps) {
   const lottieSize = monsterAreaSize * (evolutionAnimation?.stageScale ?? 2.28);
   const monsterRenderHeight = evolutionImage ? monsterAreaSize * 1.2 : lottieSize;
   const monsterRenderWidth = evolutionImage ? monsterAreaSize * 1.02 : lottieSize;
+  const placedItems = getPlacedShopItems(roomItemPlacements);
 
   useEffect(() => {
     setIsEvolutionTouched(false);
@@ -431,6 +438,32 @@ export function MonsterStage({ evolutionVisual, width }: MonsterStageProps) {
             </>
           )}
         </Animated.View>
+
+        {placedItems.map(({ item, placement }) => (
+          <View
+            key={item.id}
+            pointerEvents="none"
+            style={[
+              styles.roomItemLayer,
+              {
+                height: monsterAreaSize * placement.height,
+                left: monsterAreaSize * placement.left,
+                top: monsterAreaSize * placement.top,
+                width: monsterAreaSize * placement.width,
+                zIndex: placement.zIndex,
+              },
+              placement.rotate
+                ? { transform: [{ rotate: placement.rotate }] }
+                : null,
+            ]}
+          >
+            <Image
+              resizeMode="contain"
+              source={item.imageSource}
+              style={styles.roomItemImage}
+            />
+          </View>
+        ))}
       </View>
 
     </ImageBackground>
@@ -466,6 +499,13 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 0,
     top: 0,
+  },
+  roomItemImage: {
+    height: "100%",
+    width: "100%",
+  },
+  roomItemLayer: {
+    position: "absolute",
   },
   bodyLayer: {
     zIndex: 1,

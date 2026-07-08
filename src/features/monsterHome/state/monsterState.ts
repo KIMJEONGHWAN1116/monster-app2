@@ -1,6 +1,6 @@
 import type { EvolutionId } from "./evolution";
 import type { MissionId } from "./missions";
-import type { ShopItemSlot } from "./shopItems";
+import type { RoomItemPlacements, ShopItemSlot } from "./shopItems";
 
 export type MonsterState = {
   claimedMissionIds: MissionId[];
@@ -11,6 +11,7 @@ export type MonsterState = {
   ownedItemIds: string[];
   points: number;
   registeredEvolutionIds: EvolutionId[];
+  roomItemPlacements: RoomItemPlacements;
 };
 
 export type FeedEmotion = {
@@ -27,4 +28,5 @@ export const initialMonsterState: MonsterState = {
   ownedItemIds: [],
   points: 0,
   registeredEvolutionIds: [],
+  roomItemPlacements: {},
 };

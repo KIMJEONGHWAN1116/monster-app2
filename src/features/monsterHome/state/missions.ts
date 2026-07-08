@@ -55,8 +55,9 @@ const missionDefinitions: MissionDefinition[] = [
     title: "気持ちを見つける",
   },
   {
-    description: "おなかを100%まで満たして、進化の準備をする。",
-    getProgress: (_logs, monster) => monster.onakaPercent,
+    description: "おなかを100%まで満たして、進化を見届ける。",
+    getProgress: (_logs, monster) =>
+      monster.registeredEvolutionIds.length > 0 ? 100 : monster.onakaPercent,
     id: "full-onaka",
     reward: 80,
     target: 100,

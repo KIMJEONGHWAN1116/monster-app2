@@ -1,42 +1,42 @@
 import { Image, StyleSheet, View } from "react-native";
 
 import { EvolutionVisual } from "../state/evolution";
-import { getEquippedShopItems, ShopItemSlot } from "../state/shopItems";
+import { getPlacedShopItems, RoomItemPlacements } from "../state/shopItems";
 import { MonsterPreview } from "./MonsterPreview";
 
 type DressedMonsterPreviewProps = {
-  equippedItemIds: Partial<Record<ShopItemSlot, string>>;
   evolutionVisual?: EvolutionVisual | null;
+  roomItemPlacements: RoomItemPlacements;
   size: number;
 };
 
 export function DressedMonsterPreview({
-  equippedItemIds,
   evolutionVisual,
+  roomItemPlacements,
   size,
 }: DressedMonsterPreviewProps) {
-  const equippedItems = getEquippedShopItems(equippedItemIds);
+  const placedItems = getPlacedShopItems(roomItemPlacements);
 
   return (
     <View style={[styles.container, { height: size, width: size }]}>
       <MonsterPreview evolutionVisual={evolutionVisual} size={size} />
 
-      {equippedItems.map((item) => (
+      {placedItems.map(({ item, placement }) => (
         <View
           key={item.id}
           pointerEvents="none"
           style={[
             styles.itemLayer,
             {
-              height: size * item.placement.height,
-              left: size * item.placement.left,
-              top: size * item.placement.top,
-              width: size * item.placement.width,
-              zIndex: item.placement.zIndex,
+              height: size * placement.height,
+              left: size * placement.left,
+              top: size * placement.top,
+              width: size * placement.width,
+              zIndex: placement.zIndex,
             },
-            item.placement.rotate
+            placement.rotate
               ? {
-                  transform: [{ rotate: item.placement.rotate }],
+                  transform: [{ rotate: placement.rotate }],
                 }
               : null,
           ]}

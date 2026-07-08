@@ -27,8 +27,6 @@ const categoryTabs: Array<{ key: ShopItemSlot | "all"; label: string }> = [
   { key: "head", label: "あたま" },
   { key: "face", label: "かお" },
   { key: "body", label: "からだ" },
-  { key: "feet", label: "あし" },
-  { key: "friend", label: "ともだち" },
 ];
 
 type ShopScreenProps = {
