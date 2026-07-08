@@ -1,12 +1,12 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import {
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  useWindowDimensions,
-  View,
+    Pressable,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    useWindowDimensions,
+    View,
 } from "react-native";
 
 import { MonsterPreview } from "../components/MonsterPreview";
@@ -109,14 +109,11 @@ export function MonsterDexScreen({
                     !isRegistered && styles.lockedImageFrame,
                   ]}
                 >
-                  <View
-                    style={[
-                      styles.monsterVisual,
-                      !isRegistered && styles.lockedVisual,
-                    ]}
-                  >
+                  <View style={styles.monsterVisual}>
                     <MonsterPreview
                       evolutionVisual={choice.visual}
+                      forceStaticImage
+                      isLocked={!isRegistered}
                       size={116}
                     />
                   </View>
@@ -219,9 +216,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 2,
     width: 38,
-  },
-  lockedVisual: {
-    opacity: 0.2,
   },
   lockedImageFrame: {
     backgroundColor: "rgba(238, 227, 255, 0.46)",

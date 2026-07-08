@@ -1,5 +1,5 @@
-import { ImageSourcePropType } from "react-native";
 import type { AnimationObject } from "lottie-react-native";
+import { ImageSourcePropType } from "react-native";
 
 import { EmotionLogEntry } from "./emotionLog";
 
@@ -19,10 +19,13 @@ export type EvolutionVisual =
   | {
       imageSource: ImageSourcePropType;
       kind: "image";
+      lockedImageSource?: ImageSourcePropType;
     }
   | {
       animation: EvolutionAnimation;
       kind: "lottie";
+      lockedImageSource?: ImageSourcePropType;
+      previewImageSource?: ImageSourcePropType;
     };
 
 export type EvolutionChoice = {
@@ -34,7 +37,11 @@ export type EvolutionChoice = {
 };
 
 const anxietyEvolutionImage = require("../../../assets/images/evolution/anxiety-evolution-mint.png");
+const anxietyEvolutionLockedImage = require("../../../assets/images/evolution/S-anxiety-evolution-mint.png");
+const ikariEvolutionImage = require("../../../assets/images/evolution/ikari-evolution.png");
+const ikariEvolutionLockedImage = require("../../../assets/images/evolution/S-ikari-evolution.png");
 const kanashimiEvolutionImage = require("../../../assets/images/evolution/kanashimi-evolution.png");
+const kanashimiEvolutionLockedImage = require("../../../assets/images/evolution/S-kanashimi-evolution.png");
 const ikariDevilArmsIdle = require("../../../assets/lottie/evolution/ikari-devil-arms-idle.json") as AnimationObject;
 const ikariDevilArmsTouch = require("../../../assets/lottie/evolution/ikari-devil-arms-touch.json") as AnimationObject;
 const ikariDevilBodyIdle = require("../../../assets/lottie/evolution/ikari-devil-body-idle.json") as AnimationObject;
@@ -51,6 +58,7 @@ export const evolutionChoices: EvolutionChoice[] = [
     visual: {
       imageSource: anxietyEvolutionImage,
       kind: "image",
+      lockedImageSource: anxietyEvolutionLockedImage,
     },
   },
   {
@@ -70,6 +78,8 @@ export const evolutionChoices: EvolutionChoice[] = [
         touchFaceSource: ikariDevilFaceAngry,
       },
       kind: "lottie",
+      lockedImageSource: ikariEvolutionLockedImage,
+      previewImageSource: ikariEvolutionImage,
     },
   },
   {
@@ -81,6 +91,7 @@ export const evolutionChoices: EvolutionChoice[] = [
     visual: {
       imageSource: kanashimiEvolutionImage,
       kind: "image",
+      lockedImageSource: kanashimiEvolutionLockedImage,
     },
   },
 ];
