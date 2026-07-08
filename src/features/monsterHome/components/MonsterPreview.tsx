@@ -1,6 +1,6 @@
-import { Image, StyleSheet, View } from "react-native";
-import LottieView from "lottie-react-native";
 import type { AnimationObject } from "lottie-react-native";
+import LottieView from "lottie-react-native";
+import { Image, StyleSheet, View } from "react-native";
 
 import type { EvolutionVisual } from "../state/evolution";
 
@@ -9,10 +9,17 @@ const monsterFaceIdle = require("../../../assets/lottie/monster_face_idle.json")
 
 type MonsterPreviewProps = {
   evolutionVisual?: EvolutionVisual | null;
+  forceStaticImage?: boolean;
+  isLocked?: boolean;
   size: number;
 };
 
-export function MonsterPreview({ evolutionVisual, size }: MonsterPreviewProps) {
+export function MonsterPreview({
+  evolutionVisual,
+  forceStaticImage = false,
+  isLocked = false,
+  size,
+}: MonsterPreviewProps) {
   if (!evolutionVisual) {
     return (
       <LayeredLottiePreview
@@ -22,6 +29,29 @@ export function MonsterPreview({ evolutionVisual, size }: MonsterPreviewProps) {
         size={size}
       />
     );
+  }
+
+  if (forceStaticImage) {
+    const imageSource =
+      evolutionVisual.kind === "image"
+        ? isLocked && evolutionVisual.lockedImageSource
+          ? evolutionVisual.lockedImageSource
+          : evolutionVisual.imageSource
+        : isLocked && evolutionVisual.lockedImageSource
+          ? evolutionVisual.lockedImageSource
+          : evolutionVisual.previewImageSource;
+
+    if (imageSource) {
+      return (
+        <View style={[styles.container, { height: size, width: size }]}>
+          <Image
+            source={imageSource}
+            resizeMode="contain"
+            style={[styles.image, styles.evolutionImage]}
+          />
+        </View>
+      );
+    }
   }
 
   if (evolutionVisual.kind === "lottie") {
@@ -38,10 +68,15 @@ export function MonsterPreview({ evolutionVisual, size }: MonsterPreviewProps) {
     );
   }
 
+  const imageSource =
+    isLocked && evolutionVisual.lockedImageSource
+      ? evolutionVisual.lockedImageSource
+      : evolutionVisual.imageSource;
+
   return (
     <View style={[styles.container, { height: size, width: size }]}>
       <Image
-        source={evolutionVisual.imageSource}
+        source={imageSource}
         resizeMode="contain"
         style={[styles.image, styles.evolutionImage]}
       />
