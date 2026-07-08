@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
 import { StatusBar } from "expo-status-bar";
+import { useEffect, useMemo, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 
 import { LaunchScreen } from "./components/LaunchScreen";
@@ -15,20 +15,20 @@ import { MyPageScreen } from "./screens/MyPageScreen";
 import { ShopScreen } from "./screens/ShopScreen";
 import { createEmotionLog, EmotionLogEntry } from "./state/emotionLog";
 import {
-  EvolutionChoice,
-  getEvolutionById,
-  getEvolutionCandidates,
+    EvolutionChoice,
+    getEvolutionById,
+    getEvolutionCandidates,
 } from "./state/evolution";
 import { getMissionStatuses, MissionStatus } from "./state/missions";
-import { MainTabKey } from "./state/navigation";
 import { FeedEmotion, initialMonsterState } from "./state/monsterState";
+import { MainTabKey } from "./state/navigation";
 import { ShopItem, ShopItemSlot } from "./state/shopItems";
 import {
-  loadEmotionLogs,
-  loadMonsterState,
-  resetStoredAppData,
-  saveEmotionLogs,
-  saveMonsterState,
+    loadEmotionLogs,
+    loadMonsterState,
+    resetStoredAppData,
+    saveEmotionLogs,
+    saveMonsterState,
 } from "./state/storage";
 import { monsterTheme } from "./styles/theme";
 
@@ -161,6 +161,8 @@ export function MonsterApp() {
   };
 
   const completeEvolution = (evolution: EvolutionChoice) => {
+    if (!evolution.canEvolve) return;
+
     setMonster((currentMonster) => ({
       ...currentMonster,
       evolutionId: evolution.id,
@@ -274,6 +276,7 @@ export function MonsterApp() {
         <MonsterDexScreen
           onBack={() => openMainTab("home")}
           onClose={() => openMainTab("home")}
+          onSelectEvolution={completeEvolution}
           registeredEvolutionIds={monster.registeredEvolutionIds}
           theme={monsterTheme}
         />
