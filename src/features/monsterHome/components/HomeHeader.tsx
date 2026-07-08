@@ -1,13 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { MonsterTheme, monsterTheme } from "../styles/theme";
 
 type HomeHeaderProps = {
+  onSettingsPress?: () => void;
   theme?: MonsterTheme;
 };
 
-export function HomeHeader({ theme = monsterTheme }: HomeHeaderProps) {
+export function HomeHeader({ onSettingsPress, theme = monsterTheme }: HomeHeaderProps) {
   return (
     <View style={[styles.container, { borderBottomColor: theme.colors.border }]}>
       <View style={styles.sideSlot} />
@@ -15,11 +16,19 @@ export function HomeHeader({ theme = monsterTheme }: HomeHeaderProps) {
         マイモンスター
       </Text>
       <View style={styles.sideSlot}>
-        <Ionicons
-          name="notifications-outline"
-          size={33}
-          color={theme.colors.lavender}
-        />
+        {onSettingsPress ? (
+          <Pressable
+            accessibilityLabel="設定を開く"
+            accessibilityRole="button"
+            onPress={onSettingsPress}
+          >
+            <Ionicons
+              name="settings-outline"
+              size={30}
+              color={theme.colors.lavender}
+            />
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
