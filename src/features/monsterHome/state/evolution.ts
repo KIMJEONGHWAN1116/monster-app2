@@ -135,7 +135,8 @@ export const evolutionChoices: EvolutionChoice[] = [
       kind: "image",
       lockedImageSource: kanashimiEvolutionLockedImage,
     },
-  },  {
+  },
+  {
     description:
       "不安や寂しさを多く食べて育つ特殊な進化先。考えすぎてしまう性格だが、相手の小さな変化によく気づく優しいモンスター。揺れる気持ちにもそっと寄り添うことができる。",
     id: "yurari",
@@ -200,7 +201,8 @@ export const evolutionChoices: EvolutionChoice[] = [
       imageSource: kaburiEvolutionImage,
       kind: "image",
     },
-  },];
+  },
+];
 
 export function getEvolutionById(id: EvolutionId | null) {
   if (!id) return null;
@@ -232,7 +234,11 @@ export function getDominantEvolution(logs: EmotionLogEntry[]) {
 
   scoredChoices.sort((a, b) => b.score - a.score || a.index - b.index);
 
-  return scoredChoices[0]?.choice ?? autoEvolutionChoices[0] ?? evolutionChoices[0];
+  return (
+    scoredChoices[0]?.choice ??
+    autoEvolutionChoices[0] ??
+    evolutionChoices[0]
+  );
 }
 
 export function getEvolutionIdForFeeling(feeling: string) {

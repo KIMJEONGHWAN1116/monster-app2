@@ -22,6 +22,7 @@ type HomeScreenProps = {
   currentEvolution: EvolutionChoice | null;
   monster: MonsterState;
   onDexPress: () => void;
+  onEditMonsterName: () => void;
   onMissionPress: () => void;
   onMogumoguPress: () => void;
   onTabPress: (tab: MainTabKey) => void;
@@ -33,6 +34,7 @@ export function HomeScreen({
   currentEvolution,
   monster,
   onDexPress,
+  onEditMonsterName,
   onMissionPress,
   onMogumoguPress,
   onTabPress,
@@ -79,15 +81,39 @@ export function HomeScreen({
             },
           ]}
         >
-          <Text
-            numberOfLines={1}
-            style={[
-              styles.monsterName,
-              isCompactHeight && styles.monsterNameCompact,
-            ]}
-          >
-            {monster.name}
-          </Text>
+          <View style={styles.monsterNameRow}>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.monsterName,
+                isCompactHeight && styles.monsterNameCompact,
+              ]}
+            >
+              {monster.name}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="モンスターのニックネームを変更"
+              onPress={onEditMonsterName}
+              style={({ pressed }) => [
+                styles.nameEditButton,
+                {
+                  backgroundColor: theme.colors.lavenderPale,
+                  borderColor: theme.colors.lavenderTrack,
+                },
+                pressed && styles.quickMenuButtonPressed,
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="pencil"
+                size={17}
+                color={theme.colors.lavender}
+              />
+              <Text style={[styles.nameEditText, { color: theme.colors.lavender }]}>
+                名前変更
+              </Text>
+            </Pressable>
+          </View>
           <MonsterStage
             evolutionVisual={currentEvolution?.visual}
             roomItemPlacements={monster.roomItemPlacements}
@@ -222,11 +248,30 @@ const styles = StyleSheet.create({
   },
   monsterName: {
     color: monsterTheme.colors.ink,
+    flex: 1,
     fontSize: 28,
     fontWeight: "900",
-    width: "100%",
   },
   monsterNameCompact: {
     fontSize: 24,
+  },
+  monsterNameRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    width: "100%",
+  },
+  nameEditButton: {
+    alignItems: "center",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 4,
+    minHeight: 34,
+    paddingHorizontal: 10,
+  },
+  nameEditText: {
+    fontSize: 12,
+    fontWeight: "900",
   },
 });

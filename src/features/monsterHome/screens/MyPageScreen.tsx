@@ -24,6 +24,7 @@ import { MonsterPreview } from "../components/MonsterPreview";
 import { EvolutionChoice } from "../state/evolution";
 import { MonsterState } from "../state/monsterState";
 import { MainTabKey } from "../state/navigation";
+import { getProfileAvatarOption } from "../state/profile";
 import {
   getPlacedShopItems,
   RoomItemPlacement,
@@ -45,6 +46,7 @@ type MyPageScreenProps = {
   logCount: number;
   monster: MonsterState;
   onMogumoguPress: () => void;
+  onEditProfile: () => void;
   onResetData: () => void;
   onSaveRoom: (placements: RoomItemPlacements) => void;
   onTabPress: (tab: MainTabKey) => void;
@@ -57,6 +59,7 @@ export function MyPageScreen({
   logCount,
   monster,
   onMogumoguPress,
+  onEditProfile,
   onResetData,
   onSaveRoom,
   onTabPress,
@@ -70,6 +73,8 @@ export function MyPageScreen({
   );
   const [isConfirmingReset, setIsConfirmingReset] = useState(false);
   const [isDraggingItem, setIsDraggingItem] = useState(false);
+  const [isRoomOpen, setIsRoomOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [monsterVoiceEnabled, setMonsterVoiceEnabled] = useState(true);
   const [notificationEnabled, setNotificationEnabled] = useState(true);
@@ -97,6 +102,7 @@ export function MyPageScreen({
     () => !areRoomPlacementsEqual(draftPlacements, monster.roomItemPlacements),
     [draftPlacements, monster.roomItemPlacements]
   );
+  const profileAvatar = getProfileAvatarOption(monster.profileAvatarId);
 
   useEffect(() => {
     setDraftPlacements(monster.roomItemPlacements);
@@ -130,9 +136,16 @@ export function MyPageScreen({
   };
 
   const resetData = () => {
+    if (isResetting) return;
+
+    setIsResetting(true);
     setIsConfirmingReset(false);
     setIsSettingsOpen(false);
-    onResetData();
+    setIsRoomOpen(false);
+
+    setTimeout(() => {
+      onResetData();
+    }, 120);
   };
 
   const toggleRoomItem = (item: ShopItem) => {
@@ -206,19 +219,53 @@ export function MyPageScreen({
             <View
               style={[
                 styles.avatar,
-                { backgroundColor: theme.colors.lavenderPale },
+                { backgroundColor: profileAvatar.backgroundColor },
               ]}
             >
-              <MaterialCommunityIcons
-                name="account-outline"
-                size={38}
-                color={theme.colors.lavender}
-              />
+              {monster.profileImageUri ? (
+                <Image
+                  source={{ uri: monster.profileImageUri }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <MaterialCommunityIcons
+                  name={
+                    profileAvatar.iconName as keyof typeof MaterialCommunityIcons.glyphMap
+                  }
+                  size={38}
+                  color={profileAvatar.color}
+                />
+              )}
             </View>
             <View style={styles.profileTextBlock}>
               <Text style={styles.title}>マイページ</Text>
-              <Text style={styles.subtitle}>モンスターとの記録</Text>
+              <Text style={styles.profileMonsterName}>{monster.name}</Text>
+              <Text style={styles.subtitle}>
+                誕生日 {monster.userBirthday || "未設定"}
+              </Text>
             </View>
+            <Pressable
+              accessibilityLabel="プロフィールを編集"
+              accessibilityRole="button"
+              onPress={onEditProfile}
+              style={({ pressed }) => [
+                styles.profileEditButton,
+                {
+                  backgroundColor: theme.colors.lavenderPale,
+                  borderColor: theme.colors.lavenderTrack,
+                },
+                pressed && styles.buttonPressed,
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="pencil"
+                size={17}
+                color={theme.colors.lavender}
+              />
+              <Text style={[styles.profileEditText, { color: theme.colors.lavender }]}>
+                編集
+              </Text>
+            </Pressable>
 
             <View style={styles.statRow}>
               <View style={styles.statItem}>
@@ -243,6 +290,65 @@ export function MyPageScreen({
               </View>
             </View>
           </View>
+
+          <Pressable
+            accessibilityLabel="おきがえルームへ"
+            accessibilityRole="button"
+            onPress={() => setIsRoomOpen(true)}
+            style={({ pressed }) => [
+              styles.roomEntryButton,
+              {
+                backgroundColor: theme.colors.lavender,
+                borderColor: "rgba(255, 255, 255, 0.78)",
+              },
+              theme.shadow,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <View style={styles.roomEntryIcon}>
+              <MaterialCommunityIcons
+                name="hanger"
+                size={30}
+                color={theme.colors.lavender}
+              />
+            </View>
+            <View style={styles.roomEntryTextBlock}>
+              <Text style={styles.roomEntryTitle}>おきがえルーム</Text>
+              <Text style={styles.roomEntrySubtitle}>
+                アイテムをドラッグして、好きな場所に置く
+              </Text>
+            </View>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={30}
+              color={theme.colors.white}
+            />
+          </Pressable>
+
+          {isRoomOpen ? (
+            <>
+              <Pressable
+                accessibilityLabel="マイページに戻る"
+                accessibilityRole="button"
+                onPress={() => setIsRoomOpen(false)}
+                style={({ pressed }) => [
+                  styles.roomBackButton,
+                  {
+                    backgroundColor: "rgba(255, 255, 255, 0.76)",
+                    borderColor: theme.colors.lavenderTrack,
+                  },
+                  pressed && styles.buttonPressed,
+                ]}
+              >
+                <MaterialCommunityIcons
+                  name="chevron-left"
+                  size={22}
+                  color={theme.colors.lavender}
+                />
+                <Text style={[styles.roomBackText, { color: theme.colors.lavender }]}>
+                  マイページへ戻る
+                </Text>
+              </Pressable>
 
           <View
             style={[
@@ -442,6 +548,8 @@ export function MyPageScreen({
               })}
             </View>
           )}
+            </>
+          ) : null}
         </View>
       </ScrollView>
 
@@ -454,7 +562,14 @@ export function MyPageScreen({
 
       <Modal
         animationType="fade"
-        onRequestClose={() => setIsSettingsOpen(false)}
+        onRequestClose={() => {
+          if (isConfirmingReset) {
+            setIsConfirmingReset(false);
+            return;
+          }
+
+          setIsSettingsOpen(false);
+        }}
         transparent
         visible={isSettingsOpen}
       >
@@ -468,18 +583,75 @@ export function MyPageScreen({
               },
             ]}
           >
-            <View style={styles.settingsHeader}>
-              <Text style={styles.modalTitle}>設定</Text>
-              <Pressable
-                accessibilityLabel="設定を閉じる"
-                accessibilityRole="button"
-                onPress={() => setIsSettingsOpen(false)}
-              >
-                <MaterialCommunityIcons name="close" size={24} color="#25265e" />
-              </Pressable>
-            </View>
+            {isConfirmingReset ? (
+              <>
+                <Text style={styles.modalTitle}>本当にリセットする？</Text>
+                <Text style={styles.modalText}>
+                  モンスター、感情ログ、図鑑、ポイント、アイテムが最初の状態に戻ります。
+                </Text>
 
-            <ScrollView style={styles.settingsScroll} showsVerticalScrollIndicator={false}>
+                <View style={styles.modalActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="キャンセル"
+                    onPress={() => setIsConfirmingReset(false)}
+                    style={({ pressed }) => [
+                      styles.modalButton,
+                      {
+                        backgroundColor: theme.colors.lavenderPale,
+                      },
+                      pressed && styles.buttonPressed,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modalButtonText,
+                        { color: theme.colors.lavender },
+                      ]}
+                    >
+                      キャンセル
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="リセットする"
+                    disabled={isResetting}
+                    onPress={resetData}
+                    style={({ pressed }) => [
+                      styles.modalButton,
+                      styles.resetConfirmButton,
+                      isResetting && styles.disabledButton,
+                      pressed && !isResetting && styles.buttonPressed,
+                    ]}
+                  >
+                    <Text style={styles.resetConfirmText}>
+                      {isResetting ? "リセット中..." : "リセットする"}
+                    </Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <>
+                <View style={styles.settingsHeader}>
+                  <Text style={styles.modalTitle}>設定</Text>
+                  <Pressable
+                    accessibilityLabel="設定を閉じる"
+                    accessibilityRole="button"
+                    onPress={() => setIsSettingsOpen(false)}
+                  >
+                    <MaterialCommunityIcons
+                      name="close"
+                      size={24}
+                      color="#25265e"
+                    />
+                  </Pressable>
+                </View>
+
+                <ScrollView
+                  style={styles.settingsScroll}
+                  showsVerticalScrollIndicator={false}
+                >
               <SettingSliderRow
                 label="BGM音量"
                 onValueChange={setBgmVolume}
@@ -575,64 +747,8 @@ export function MyPageScreen({
                 </View>
               </Pressable>
             </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        animationType="fade"
-        onRequestClose={() => setIsConfirmingReset(false)}
-        transparent
-        visible={isConfirmingReset}
-      >
-        <View style={styles.modalBackdrop}>
-          <View
-            style={[
-              styles.modalCard,
-              {
-                backgroundColor: theme.colors.white,
-                borderColor: theme.colors.lavenderTrack,
-              },
-            ]}
-          >
-            <Text style={styles.modalTitle}>本当にリセットする？</Text>
-            <Text style={styles.modalText}>
-              モンスター、感情ログ、図鑑、ポイント、アイテムが最初の状態に戻ります。
-            </Text>
-
-            <View style={styles.modalActions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="キャンセル"
-                onPress={() => setIsConfirmingReset(false)}
-                style={({ pressed }) => [
-                  styles.modalButton,
-                  {
-                    backgroundColor: theme.colors.lavenderPale,
-                  },
-                  pressed && styles.buttonPressed,
-                ]}
-              >
-                <Text
-                  style={[styles.modalButtonText, { color: theme.colors.lavender }]}
-                >
-                  キャンセル
-                </Text>
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="リセットする"
-                onPress={resetData}
-                style={({ pressed }) => [
-                  styles.modalButton,
-                  styles.resetConfirmButton,
-                  pressed && styles.buttonPressed,
-                ]}
-              >
-                <Text style={styles.resetConfirmText}>リセットする</Text>
-              </Pressable>
-            </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -848,7 +964,12 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     height: 68,
     justifyContent: "center",
+    overflow: "hidden",
     width: 68,
+  },
+  avatarImage: {
+    height: "100%",
+    width: "100%",
   },
   buttonPressed: {
     opacity: 0.78,
@@ -904,6 +1025,9 @@ const styles = StyleSheet.create({
   },
   draggableItem: {
     position: "absolute",
+  },
+  disabledButton: {
+    opacity: 0.56,
   },
   emptyCloset: {
     alignItems: "center",
@@ -1048,6 +1172,25 @@ const styles = StyleSheet.create({
     padding: 20,
     width: "100%",
   },
+  profileEditButton: {
+    alignItems: "center",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 4,
+    minHeight: 34,
+    paddingHorizontal: 10,
+  },
+  profileEditText: {
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  profileMonsterName: {
+    color: monsterTheme.colors.ink,
+    fontSize: 18,
+    fontWeight: "900",
+    marginTop: 4,
+  },
   profileTextBlock: {
     flex: 1,
     minWidth: 0,
@@ -1174,10 +1317,58 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 14,
   },
+  roomBackButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 4,
+    minHeight: 40,
+    paddingHorizontal: 12,
+  },
+  roomBackText: {
+    fontSize: 14,
+    fontWeight: "900",
+  },
   roomCard: {
     borderRadius: 28,
     borderWidth: 1,
     padding: 18,
+  },
+  roomEntryButton: {
+    alignItems: "center",
+    borderRadius: 28,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 14,
+    minHeight: 92,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+  },
+  roomEntryIcon: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.86)",
+    borderRadius: 999,
+    height: 54,
+    justifyContent: "center",
+    width: 54,
+  },
+  roomEntrySubtitle: {
+    color: "rgba(255, 255, 255, 0.82)",
+    fontSize: 13,
+    fontWeight: "800",
+    lineHeight: 18,
+    marginTop: 4,
+  },
+  roomEntryTextBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  roomEntryTitle: {
+    color: monsterTheme.colors.white,
+    fontSize: 22,
+    fontWeight: "900",
   },
   roomHeader: {
     alignItems: "center",

@@ -40,10 +40,14 @@ export function MonsterStage({
   const [isEvolutionTouched, setIsEvolutionTouched] = useState(false);
   const [motion, setMotion] = useState<MonsterMotion>("");
   const blinkRef = useRef<React.ElementRef<typeof LottieView>>(null);
+  const blinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const evolutionAnimationRef = useRef<EvolutionAnimation | null>(null);
   const evolutionTouchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const isBlinkingRef = useRef(false);
+  const motionEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const motionRef = useRef<MonsterMotion>("");
   const translateY = useRef(new Animated.Value(0)).current;
   const scaleX = useRef(new Animated.Value(1)).current;
   const scaleY = useRef(new Animated.Value(1)).current;
@@ -66,8 +70,24 @@ export function MonsterStage({
       if (evolutionTouchTimerRef.current) {
         clearTimeout(evolutionTouchTimerRef.current);
       }
+      if (blinkTimerRef.current) {
+        clearTimeout(blinkTimerRef.current);
+      }
+      if (motionEndTimerRef.current) {
+        clearTimeout(motionEndTimerRef.current);
+      }
     };
   }, [evolutionVisual]);
+
+  const setBlinkingState = (nextIsBlinking: boolean) => {
+    isBlinkingRef.current = nextIsBlinking;
+    setIsBlinking(nextIsBlinking);
+  };
+
+  const setMotionState = (nextMotion: MonsterMotion) => {
+    motionRef.current = nextMotion;
+    setMotion(nextMotion);
+  };
 
   const resetTransform = () => {
     translateY.setValue(0);
@@ -76,17 +96,22 @@ export function MonsterStage({
   };
 
   const handleBlink = () => {
-    if (isBlinking || motion !== "") return;
+    if (isBlinkingRef.current || motionRef.current !== "") return;
 
-    setIsBlinking(true);
+    setBlinkingState(true);
 
     requestAnimationFrame(() => {
       blinkRef.current?.reset();
       blinkRef.current?.play();
     });
 
-    setTimeout(() => {
-      setIsBlinking(false);
+    if (blinkTimerRef.current) {
+      clearTimeout(blinkTimerRef.current);
+    }
+
+    blinkTimerRef.current = setTimeout(() => {
+      setBlinkingState(false);
+      blinkTimerRef.current = null;
     }, 700);
   };
 
@@ -122,9 +147,9 @@ export function MonsterStage({
   };
 
   const runJump = () => {
-    if (motion !== "" || isBlinking) return;
+    if (motionRef.current !== "" || isBlinkingRef.current) return;
 
-    setMotion("jump");
+    setMotionState("jump");
     resetTransform();
 
     Animated.sequence([
@@ -197,15 +222,15 @@ export function MonsterStage({
         }),
       ]),
     ]).start(() => {
-      setMotion("");
+      setMotionState("");
       resetTransform();
     });
   };
 
   const runSquash = () => {
-    if (motion !== "" || isBlinking) return;
+    if (motionRef.current !== "" || isBlinkingRef.current) return;
 
-    setMotion("squash");
+    setMotionState("squash");
     resetTransform();
 
     Animated.sequence([
@@ -259,9 +284,14 @@ export function MonsterStage({
         }),
       ]),
     ]).start(() => {
-      setTimeout(() => {
-        setMotion("");
+      if (motionEndTimerRef.current) {
+        clearTimeout(motionEndTimerRef.current);
+      }
+
+      motionEndTimerRef.current = setTimeout(() => {
+        setMotionState("");
         resetTransform();
+        motionEndTimerRef.current = null;
       }, 200);
     });
   };
@@ -301,7 +331,7 @@ export function MonsterStage({
         clearEvolutionTouchTimer();
         setIsEvolutionTouched(false);
         resetTransform();
-        setMotion("");
+        setMotionState("");
       },
       onPanResponderTerminationRequest: () => false,
       onShouldBlockNativeResponder: () => true,

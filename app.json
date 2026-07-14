@@ -34,6 +34,12 @@
             "imageWidth": 76
           }
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "プロフィール写真を選ぶために写真ライブラリを使用します。"
+        }
       ]
     ],
     "experiments": {

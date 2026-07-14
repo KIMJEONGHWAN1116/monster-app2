@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { EmotionLogEntry } from "./emotionLog";
 import { initialMonsterState, MonsterState } from "./monsterState";
 import { MissionId } from "./missions";
+import { isProfileAvatarId } from "./profile";
 import {
   getShopItemById,
   isRoomItemPlacement,
@@ -78,18 +79,44 @@ export async function loadMonsterState() {
       typeof (parsedMonster as { points?: unknown }).points === "number"
         ? Math.max(0, Math.floor((parsedMonster as { points: number }).points))
         : initialMonsterState.points;
+    const profileAvatarId = isProfileAvatarId(
+      (parsedMonster as { profileAvatarId?: unknown }).profileAvatarId
+    )
+      ? (parsedMonster as { profileAvatarId: MonsterState["profileAvatarId"] })
+          .profileAvatarId
+      : initialMonsterState.profileAvatarId;
+    const profileImageUri =
+      typeof (parsedMonster as { profileImageUri?: unknown }).profileImageUri ===
+      "string"
+        ? (parsedMonster as { profileImageUri: string }).profileImageUri
+        : initialMonsterState.profileImageUri;
+    const userBirthday =
+      typeof (parsedMonster as { userBirthday?: unknown }).userBirthday ===
+      "string"
+        ? (parsedMonster as { userBirthday: string }).userBirthday.slice(0, 24)
+        : initialMonsterState.userBirthday;
+    const hasCompletedProfile =
+      typeof (parsedMonster as { hasCompletedProfile?: unknown })
+        .hasCompletedProfile === "boolean"
+        ? (parsedMonster as { hasCompletedProfile: boolean })
+            .hasCompletedProfile
+        : Boolean(parsedMonster.name && userBirthday);
 
     return {
       ...initialMonsterState,
       claimedMissionIds,
       equippedItemIds,
       evolutionId,
+      hasCompletedProfile,
       name: parsedMonster.name ?? initialMonsterState.name,
       onakaPercent,
       ownedItemIds,
       points,
+      profileAvatarId,
+      profileImageUri,
       registeredEvolutionIds,
       roomItemPlacements,
+      userBirthday,
     };
   } catch {
     return initialMonsterState;

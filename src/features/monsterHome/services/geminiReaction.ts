@@ -1,9 +1,21 @@
 import { FeedEmotion } from "../state/monsterState";
 
-const geminiInteractionsEndpoint =
-  "https://generativelanguage.googleapis.com/v1beta/interactions";
 const defaultModel = "gemini-2.5-flash";
-const fallbackModels = ["gemini-2.5-flash", "gemini-2.0-flash"];
+const geminiApiBaseUrl = "https://generativelanguage.googleapis.com/v1beta";
+
+type GeminiGenerateContentResponse = {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: unknown;
+      }>;
+    };
+  }>;
+};
+
+type GeminiReactionJson = {
+  reaction?: unknown;
+};
 
 export async function generateGeminiMonsterReaction(emotion: FeedEmotion) {
   const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
@@ -13,109 +25,69 @@ export async function generateGeminiMonsterReaction(emotion: FeedEmotion) {
     return null;
   }
 
-  const model = process.env.EXPO_PUBLIC_GEMINI_MODEL || defaultModel;
+  const model = normalizeModelName(
+    process.env.EXPO_PUBLIC_GEMINI_MODEL || defaultModel
+  );
   const prompt = buildReactionPrompt(emotion);
-  const modelsToTry = Array.from(new Set([model, ...fallbackModels]));
+  const reactionText = await requestGeminiGenerateContent(
+    apiKey,
+    model,
+    prompt
+  );
 
-  for (const currentModel of modelsToTry) {
-    const interactionText = await requestGeminiInteraction(
-      apiKey,
-      currentModel,
-      prompt
-    );
+  if (!reactionText) return null;
 
-    if (interactionText) return sanitizeReactionText(interactionText);
-
-    const generatedText = await requestGeminiGenerateContent(
-      apiKey,
-      currentModel,
-      prompt
-    );
-
-    if (generatedText) return sanitizeReactionText(generatedText);
-  }
-
-  return null;
+  return sanitizeReactionText(reactionText);
 }
 
 function buildReactionPrompt(emotion: FeedEmotion) {
+  const feeling = emotion.feeling || "わからない";
+  const note = emotion.note?.trim() || "特に文章はありません。";
+
   return [
     "あなたは、ユーザーのモヤモヤを食べてくれる小さなやさしいモンスターです。",
-    "ユーザーの感情と文章を読んで、毎回少し違う反応を日本語で返してください。",
-    "条件:",
-    "- 1文だけ",
-    "- 45文字以内",
-    "- かわいく、やさしく、押しつけない",
-    "- 医療・診断・断定はしない",
-    "- 「これは...」から始める",
-    `感情: ${emotion.feeling}`,
-    `文章: ${emotion.note}`,
+    "次の感情と文章を読んで、モンスターの自然な反応を1つ作ってください。",
+    "",
+    "返答はJSONだけにしてください。",
+    '形式: {"reaction":"これは、..."}',
+    "",
+    "reactionの条件:",
+    "・日本語",
+    "・35〜75文字くらい",
+    "・かわいく、やさしく、押しつけない",
+    "・医療、診断、断定、強いアドバイスはしない",
+    "・ユーザーの文章の内容を少しだけ反映する",
+    "・毎回まったく同じ言い方にしない",
+    "・できれば「これは、」から自然に始める",
+    "・文末は自然に終える",
+    "",
+    `感情: ${feeling}`,
+    `文章: ${note}`,
   ].join("\n");
 }
 
-function extractGeminiText(data: unknown): string | null {
-  if (!data || typeof data !== "object") return null;
-
-  const directText = findTextValue(data, [
-    "output_text",
-    "outputText",
-    "text",
-  ]);
-
-  if (directText) return directText;
-
-  return findNestedText(data);
-}
-
-function findTextValue(data: object, keys: string[]) {
-  for (const key of keys) {
-    const value = (data as Record<string, unknown>)[key];
-    if (typeof value === "string" && value.trim()) return value;
-  }
-
-  return null;
-}
-
-function findNestedText(data: unknown): string | null {
-  if (typeof data === "string") return data.trim() || null;
-  if (!data || typeof data !== "object") return null;
-
-  if (Array.isArray(data)) {
-    for (const item of data) {
-      const text = findNestedText(item);
-      if (text) return text;
-    }
-
-    return null;
-  }
-
-  const record = data as Record<string, unknown>;
-
-  if (typeof record.text === "string" && record.text.trim()) {
-    return record.text;
-  }
-
-  for (const value of Object.values(record)) {
-    const text = findNestedText(value);
-    if (text) return text;
-  }
-
-  return null;
-}
-
-function sanitizeReactionText(text: string) {
-  return text.replace(/\s+/g, " ").trim().slice(0, 70);
-}
-
-async function requestGeminiInteraction(
+async function requestGeminiGenerateContent(
   apiKey: string,
   model: string,
   prompt: string
 ) {
-  const response = await fetch(geminiInteractionsEndpoint, {
+  const endpoint = `${geminiApiBaseUrl}/models/${model}:generateContent`;
+
+  const response = await fetch(endpoint, {
     body: JSON.stringify({
-      input: prompt,
-      model,
+      contents: [
+        {
+          parts: [{ text: prompt }],
+          role: "user",
+        },
+      ],
+      generationConfig: {
+        maxOutputTokens: 512,
+        thinkingConfig: {
+          thinkingBudget: 0,
+        },
+        temperature: 0.9,
+      },
     }),
     headers: {
       "Content-Type": "application/json",
@@ -124,66 +96,110 @@ async function requestGeminiInteraction(
     method: "POST",
   });
 
-  return readGeminiTextResponse(response, `interactions:${model}`);
-}
-
-async function requestGeminiGenerateContent(
-  apiKey: string,
-  model: string,
-  prompt: string
-) {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-    {
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [{ text: prompt }],
-            role: "user",
-          },
-        ],
-        generationConfig: {
-          maxOutputTokens: 80,
-          temperature: 0.9,
-        },
-      }),
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      method: "POST",
-    }
-  );
-
   return readGeminiTextResponse(response, `generateContent:${model}`);
 }
 
 async function readGeminiTextResponse(response: Response, label: string) {
+  const data = await readGeminiJson(response);
+
   if (!response.ok) {
-    await logGeminiResponseError(response, label);
+    logGeminiWarning(
+      `${label} failed: ${response.status} ${response.statusText}`,
+      JSON.stringify(data).slice(0, 500)
+    );
     return null;
   }
 
-  const data: unknown = await response.json();
-  const text = extractGeminiText(data);
+  const text = extractGenerateContentText(data);
 
   if (!text) {
-    logGeminiWarning(`${label} returned no text.`);
+    logGeminiWarning(
+      `${label} returned no text.`,
+      JSON.stringify(data).slice(0, 500)
+    );
     return null;
   }
 
   return text;
 }
 
-async function logGeminiResponseError(response: Response, label: string) {
+function extractGenerateContentText(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+
+  const record = data as GeminiGenerateContentResponse;
+  const text = record.candidates?.[0]?.content?.parts?.find(
+    (part) => typeof part.text === "string" && part.text.trim()
+  )?.text;
+
+  if (typeof text === "string" && text.trim()) {
+    return text.trim();
+  }
+
+  return null;
+}
+
+function sanitizeReactionText(text: string) {
+  const jsonReaction = extractReactionFromJson(text);
+  const normalized = normalizeReactionText(jsonReaction ?? text);
+
+  if (!normalized || isInstructionEcho(normalized)) {
+    logGeminiWarning("Gemini reaction was rejected.", text);
+    return null;
+  }
+
+  if (/[。！？]$/.test(normalized)) return normalized;
+
+  return `${normalized}。`;
+}
+
+function extractReactionFromJson(text: string) {
+  const cleaned = text.replace(/```(?:json)?|```/g, "").trim();
+  const objectMatch = cleaned.match(/\{[\s\S]*\}/);
+  const jsonText = objectMatch?.[0] ?? cleaned;
+
   try {
-    const detail = await response.text();
-    logGeminiWarning(
-      `${label} failed: ${response.status} ${response.statusText}`,
-      detail
-    );
+    const parsed = JSON.parse(jsonText) as GeminiReactionJson;
+    return typeof parsed.reaction === "string" ? parsed.reaction : null;
   } catch {
-    logGeminiWarning(`${label} failed: ${response.status} ${response.statusText}`);
+    return null;
+  }
+}
+
+function normalizeReactionText(text: string) {
+  return text
+    .split(/\r?\n/)
+    .map((line) =>
+      line
+        .replace(/^[\s\-・*]+/, "")
+        .replace(/^モンスター\s*[:：]\s*/, "")
+        .replace(/^reaction\s*[:：]\s*/i, "")
+        .replace(/^["'「『]+|["'」』]+$/g, "")
+        .trim()
+    )
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isInstructionEcho(text: string) {
+  if (text.length < 8) return true;
+  if (/^これは[、,.。…?？!！]*$/.test(text)) return true;
+
+  return /^(必ず|条件|感情|文章|文頭|文末|返答|形式|reaction|JSON|ユーザー|あなたは|医療|診断)/i.test(
+    text
+  );
+}
+
+function normalizeModelName(model: string) {
+  return model.trim().replace(/^models\//, "") || defaultModel;
+}
+
+async function readGeminiJson(response: Response) {
+  try {
+    return (await response.json()) as unknown;
+  } catch {
+    return null;
   }
 }
 

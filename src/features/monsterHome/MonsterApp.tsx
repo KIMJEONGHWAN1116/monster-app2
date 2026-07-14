@@ -12,6 +12,7 @@ import { MainTabScreen } from "./screens/MainTabScreen";
 import { MissionScreen } from "./screens/MissionScreen";
 import { MonsterDexScreen } from "./screens/MonsterDexScreen";
 import { MyPageScreen } from "./screens/MyPageScreen";
+import { ProfileSetupScreen } from "./screens/ProfileSetupScreen";
 import { ShopScreen } from "./screens/ShopScreen";
 import { createEmotionLog, EmotionLogEntry } from "./state/emotionLog";
 import {
@@ -39,7 +40,8 @@ type AppMode =
   | "feedReaction"
   | "autoEvolution"
   | "dex"
-  | "mission";
+  | "mission"
+  | "profileSetup";
 
 type FeedResult = {
   emotion: FeedEmotion;
@@ -163,6 +165,41 @@ export function MonsterApp() {
     setMode("feedEmotion");
   };
 
+  const startApp = () => {
+    if (monster.hasCompletedProfile) {
+      openMainTab("home");
+      return;
+    }
+
+    setMode("profileSetup");
+  };
+
+  const openProfileSetup = () => {
+    setMode("profileSetup");
+  };
+
+  const saveProfile = ({
+    monsterName,
+    profileAvatarId,
+    profileImageUri,
+    userBirthday,
+  }: {
+    monsterName: string;
+    profileAvatarId: typeof monster.profileAvatarId;
+    profileImageUri: string;
+    userBirthday: string;
+  }) => {
+    setMonster((currentMonster) => ({
+      ...currentMonster,
+      hasCompletedProfile: true,
+      name: monsterName,
+      profileAvatarId,
+      profileImageUri,
+      userBirthday,
+    }));
+    openMainTab("home");
+  };
+
   const feedMonster = (emotion: FeedEmotion) => {
     const nextLog = createEmotionLog(emotion);
     const nextLogs = [nextLog, ...emotionLogs];
@@ -248,19 +285,34 @@ export function MonsterApp() {
 
   const resetAllData = () => {
     setEmotionLogs([]);
-    setMonster(initialMonsterState);
+    setMonster({ ...initialMonsterState });
     setLastFeedResult(null);
     setPendingEvolution(null);
     setActiveTab("home");
     setMode("launch");
-    void resetStoredAppData();
+    void resetStoredAppData().catch(() => undefined);
   };
 
   return (
     <View style={styles.appRoot}>
       <StatusBar style="dark" />
       {mode === "launch" ? (
-        <LaunchScreen onStart={() => openMainTab("home")} />
+        <LaunchScreen onStart={startApp} />
+      ) : mode === "profileSetup" ? (
+        <ProfileSetupScreen
+          initialMonsterName={monster.name}
+          initialProfileAvatarId={monster.profileAvatarId}
+          initialProfileImageUri={monster.profileImageUri}
+          initialUserBirthday={monster.userBirthday}
+          isEditing={monster.hasCompletedProfile}
+          onBack={
+            monster.hasCompletedProfile
+              ? () => openMainTab("home")
+              : () => setMode("launch")
+          }
+          onSubmit={saveProfile}
+          theme={monsterTheme}
+        />
       ) : mode === "feedEmotion" ? (
         <FeedEmotionScreen
           currentEvolution={currentEvolution}
@@ -308,6 +360,7 @@ export function MonsterApp() {
           currentEvolution={currentEvolution}
           monster={monster}
           onDexPress={() => setMode("dex")}
+          onEditMonsterName={openProfileSetup}
           onMissionPress={() => setMode("mission")}
           onMogumoguPress={openFeedEmotion}
           onTabPress={openMainTab}
@@ -338,6 +391,7 @@ export function MonsterApp() {
           logCount={emotionLogs.length}
           monster={monster}
           onMogumoguPress={openFeedEmotion}
+          onEditProfile={openProfileSetup}
           onResetData={resetAllData}
           onSaveRoom={saveRoomItemPlacements}
           onTabPress={openMainTab}
