@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ViewStyle } from "react-native";
 import {
   Animated,
@@ -67,7 +67,6 @@ export function MyPageScreen({
 }: MyPageScreenProps) {
   const { width } = useWindowDimensions();
   const [bgmVolume, setBgmVolume] = useState(0.75);
-  const [brightness, setBrightness] = useState(0.75);
   const [draftPlacements, setDraftPlacements] = useState<RoomItemPlacements>(
     monster.roomItemPlacements
   );
@@ -697,32 +696,10 @@ export function MyPageScreen({
                 </View>
               </View>
 
-              <View style={styles.settingRow}>
-                <Text style={styles.settingLabel}>画面の明るさ</Text>
-                <View style={styles.brightnessControl}>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => setBrightness((value) => Math.max(0.3, Number((value - 0.1).toFixed(1))))}
-                    style={styles.brightnessButton}
-                  >
-                    <Text style={styles.brightnessButtonText}>−</Text>
-                  </Pressable>
-                  <Text style={styles.brightnessValue}>{Math.round(brightness * 100)}%</Text>
-                  <Pressable
-                    accessibilityRole="button"
-                    onPress={() => setBrightness((value) => Math.min(1, Number((value + 0.1).toFixed(1))))}
-                    style={styles.brightnessButton}
-                  >
-                    <Text style={styles.brightnessButtonText}>＋</Text>
-                  </Pressable>
-                </View>
-              </View>
-
               <SettingRow
                 label="通知"
                 value={notificationEnabled}
                 onValueChange={setNotificationEnabled}
-                description="未実装"
               />
 
               <Pressable
@@ -742,7 +719,8 @@ export function MyPageScreen({
                 <View style={styles.resetTextBlock}>
                   <Text style={styles.resetTitle}>モンスターのリセット</Text>
                   <Text style={styles.resetDescription}>
-                    きろく・図鑑・ポイント・アイテムをリセット
+                    きろく・図鑑・ポイント・
+                    アイテムをリセット
                   </Text>
                 </View>
               </Pressable>
@@ -765,15 +743,14 @@ function SettingSliderRow({
   onValueChange: (value: number) => void;
   value: number;
 }) {
-  const [trackLayout, setTrackLayout] = useState({ x: 0, width: 0 });
+  const [trackWidth, setTrackWidth] = useState(0);
 
-  const updateSliderFromPosition = (clientX: number) => {
-    if (trackLayout.width === 0) {
+  const updateSliderFromPosition = (localX: number) => {
+    if (trackWidth === 0) {
       return;
     }
 
-    const relativeX = clientX - trackLayout.x;
-    const nextValue = Math.min(1, Math.max(0, relativeX / trackLayout.width));
+    const nextValue = Math.min(1, Math.max(0, localX / trackWidth));
     onValueChange(Number(nextValue.toFixed(2)));
   };
 
@@ -781,15 +758,15 @@ function SettingSliderRow({
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: (_, gestureState) => {
-          updateSliderFromPosition(gestureState.x0);
+        onPanResponderGrant: (event) => {
+          updateSliderFromPosition(event.nativeEvent.locationX);
         },
-        onPanResponderMove: (_, gestureState) => {
-          updateSliderFromPosition(gestureState.moveX);
+        onPanResponderMove: (event) => {
+          updateSliderFromPosition(event.nativeEvent.locationX);
         },
         onStartShouldSetPanResponder: () => true,
       }),
-    [trackLayout.width, trackLayout.x, onValueChange]
+    [trackWidth, onValueChange]
   );
 
   return (
@@ -802,10 +779,7 @@ function SettingSliderRow({
           accessibilityRole="adjustable"
           {...panResponder.panHandlers}
           onLayout={(event: LayoutChangeEvent) =>
-            setTrackLayout({
-              width: event.nativeEvent.layout.width,
-              x: event.nativeEvent.layout.x,
-            })
+            setTrackWidth(event.nativeEvent.layout.width)
           }
           style={styles.sliderTrack}
         >
@@ -1046,31 +1020,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "900",
     marginTop: 10,
-  },
-  brightnessButton: {
-    alignItems: "center",
-    backgroundColor: monsterTheme.colors.lavenderPale,
-    borderRadius: 999,
-    height: 34,
-    justifyContent: "center",
-    width: 34,
-  },
-  brightnessButtonText: {
-    color: monsterTheme.colors.lavender,
-    fontSize: 20,
-    fontWeight: "900",
-  },
-  brightnessControl: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 10,
-  },
-  brightnessValue: {
-    color: monsterTheme.colors.lavender,
-    fontSize: 14,
-    fontWeight: "900",
-    minWidth: 44,
-    textAlign: "center",
   },
   frequencyArrowButton: {
     alignItems: "center",
