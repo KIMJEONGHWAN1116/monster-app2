@@ -1,5 +1,6 @@
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from "expo-av";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 
 import { LaunchScreen } from "./components/LaunchScreen";
@@ -16,12 +17,16 @@ import { ProfileSetupScreen } from "./screens/ProfileSetupScreen";
 import { ShopScreen } from "./screens/ShopScreen";
 import { createEmotionLog, EmotionLogEntry } from "./state/emotionLog";
 import {
-  EvolutionChoice,
-  getDominantEvolution,
-  getEvolutionById,
+    EvolutionChoice,
+    getDominantEvolution,
+    getEvolutionById,
 } from "./state/evolution";
 import { getMissionStatuses, MissionStatus } from "./state/missions";
-import { FeedEmotion, initialMonsterState } from "./state/monsterState";
+import {
+    FeedEmotion,
+    initialMonsterState,
+    type BgmTrackId,
+} from "./state/monsterState";
 import { MainTabKey } from "./state/navigation";
 import { RoomItemPlacements, ShopItem } from "./state/shopItems";
 import {
@@ -66,6 +71,8 @@ export function MonsterApp() {
     () => getMissionStatuses(emotionLogs, monster),
     [emotionLogs, monster]
   );
+  const bgmSoundRef = useRef<Audio.Sound | null>(null);
+  const currentBgmTrackRef = useRef<BgmTrackId | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;
@@ -135,6 +142,90 @@ export function MonsterApp() {
   }, [hasLoadedMonster, monster]);
 
   useEffect(() => {
+    let isCurrentEffect = true;
+
+    const applyBgm = async () => {
+      try {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
+          interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+          playsInSilentModeIOS: true,
+          shouldDuckAndroid: true,
+          staysActiveInBackground: true,
+        });
+      } catch {
+        // Ignore audio mode errors on unsupported platforms.
+      }
+
+      const nextTrack = monster.bgmTrack;
+      const nextVolume = Math.min(1, Math.max(0, monster.bgmVolume));
+
+      try {
+        const currentSound = bgmSoundRef.current;
+
+        if (currentSound) {
+          const status = await currentSound.getStatusAsync();
+
+          if (status.isLoaded) {
+            if (currentBgmTrackRef.current === nextTrack) {
+              await currentSound.setVolumeAsync(nextVolume);
+
+              if (!status.isPlaying) {
+                await currentSound.playAsync();
+              }
+
+              return;
+            }
+
+            await currentSound.stopAsync();
+            await currentSound.unloadAsync();
+            bgmSoundRef.current = null;
+            currentBgmTrackRef.current = null;
+          }
+        }
+
+        const nextSource =
+          nextTrack === "hidamari"
+            ? require("../../assets/sounds/hidamariBGM.mp3")
+            : require("../../assets/sounds/nukumoriBGM.mp3");
+
+        const nextSound = new Audio.Sound();
+        await nextSound.loadAsync(nextSource, { isLooping: true });
+        await nextSound.setVolumeAsync(nextVolume);
+        await nextSound.playAsync();
+
+        if (!isCurrentEffect) {
+          await nextSound.unloadAsync();
+          return;
+        }
+
+        bgmSoundRef.current = nextSound;
+        currentBgmTrackRef.current = nextTrack;
+      } catch (error) {
+        console.warn("BGM playback failed", error);
+      }
+    };
+
+    void applyBgm();
+
+    return () => {
+      isCurrentEffect = false;
+    };
+  }, [monster.bgmTrack, monster.bgmVolume]);
+
+  useEffect(() => {
+    return () => {
+      const sound = bgmSoundRef.current;
+
+      if (sound) {
+        void sound.stopAsync();
+        void sound.unloadAsync();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (
       !hasLoadedLogs ||
       !hasLoadedMonster ||
@@ -172,6 +263,22 @@ export function MonsterApp() {
     }
 
     setMode("profileSetup");
+  };
+
+  const updateBgmTrack = (nextTrack: BgmTrackId) => {
+    setMonster((currentMonster) => ({
+      ...currentMonster,
+      bgmTrack: nextTrack,
+    }));
+  };
+
+  const updateBgmVolume = (nextVolume: number) => {
+    const clampedVolume = Math.min(1, Math.max(0, nextVolume));
+
+    setMonster((currentMonster) => ({
+      ...currentMonster,
+      bgmVolume: clampedVolume,
+    }));
   };
 
   const openProfileSetup = () => {
@@ -387,9 +494,13 @@ export function MonsterApp() {
       ) : activeTab === "myPage" ? (
         <MyPageScreen
           activeTab={activeTab}
+          bgmTrack={monster.bgmTrack}
+          bgmVolume={monster.bgmVolume}
           currentEvolution={currentEvolution}
           logCount={emotionLogs.length}
           monster={monster}
+          onBgmTrackChange={updateBgmTrack}
+          onBgmVolumeChange={updateBgmVolume}
           onMogumoguPress={openFeedEmotion}
           onEditProfile={openProfileSetup}
           onResetData={resetAllData}

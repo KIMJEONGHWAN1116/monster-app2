@@ -3,7 +3,11 @@ import type { MissionId } from "./missions";
 import type { ProfileAvatarId } from "./profile";
 import type { RoomItemPlacements, ShopItemSlot } from "./shopItems";
 
+export type BgmTrackId = "nukumori" | "hidamari";
+
 export type MonsterState = {
+  bgmTrack: BgmTrackId;
+  bgmVolume: number;
   claimedMissionIds: MissionId[];
   equippedItemIds: Partial<Record<ShopItemSlot, string>>;
   evolutionId: EvolutionId | null;
@@ -25,6 +29,8 @@ export type FeedEmotion = {
 };
 
 export const initialMonsterState: MonsterState = {
+  bgmTrack: "nukumori",
+  bgmVolume: 0.75,
   claimedMissionIds: [],
   equippedItemIds: {},
   evolutionId: null,
