@@ -46,6 +46,11 @@ export type EvolutionChoice = {
   visual: EvolutionVisual;
 };
 
+export type FeedFeelingOption = {
+  evolutionId: EvolutionId;
+  label: string;
+};
+
 const anxietyEvolutionImage = require("../../../assets/images/evolution/anxiety-evolution-mint.png");
 const anxietyEvolutionLockedImage = require("../../../assets/images/evolution/S-anxiety-evolution-mint.png");
 const ikariEvolutionImage = require("../../../assets/images/evolution/ikari-evolution.png");
@@ -64,14 +69,32 @@ const ikariDevilBodyIdle = require("../../../assets/lottie/evolution/ikari-devil
 const ikariDevilFaceAngry = require("../../../assets/lottie/evolution/ikari-devil-face-angry.json") as AnimationObject;
 const ikariDevilFaceIdle = require("../../../assets/lottie/evolution/ikari-devil-face-idle.json") as AnimationObject;
 
+export const feedFeelingOptions: FeedFeelingOption[] = [
+  { evolutionId: "anxiety", label: "不安" },
+  { evolutionId: "anxiety", label: "心配" },
+  { evolutionId: "anxiety", label: "こわい" },
+  { evolutionId: "ikari", label: "イライラ" },
+  { evolutionId: "ikari", label: "怒り" },
+  { evolutionId: "ikari", label: "くやしい" },
+  { evolutionId: "kanashimi", label: "かなしい" },
+  { evolutionId: "kanashimi", label: "さみしい" },
+  { evolutionId: "kanashimi", label: "つらい" },
+];
+
+export const feedFeelingLabels = feedFeelingOptions.map((option) => option.label);
+
+const evolutionIdByFeeling = new Map(
+  feedFeelingOptions.map((option) => [option.label, option.evolutionId])
+);
+
 export const evolutionChoices: EvolutionChoice[] = [
   {
     canEvolve: true,
     description:
       "不安やこわさを多く食べて育つ進化先。揺れる気持ちをそっと包み、深呼吸できる場所をつくってくれます。",
     id: "anxiety",
-    keywords: ["不安", "こわい", "モヤモヤ"],
-    name: "ドーシヨ",
+    keywords: ["不安", "心配", "こわい"],
+    name: "不安タイプ",
     visual: {
       imageSource: anxietyEvolutionImage,
       kind: "image",
@@ -83,8 +106,8 @@ export const evolutionChoices: EvolutionChoice[] = [
     description:
       "イライラやくやしさを多く食べて育つ進化先。熱くなった気持ちを受け止め、あなたの代わりに小さくふんばってくれます。",
     id: "ikari",
-    keywords: ["イライラ", "くやしい"],
-    name: "ダマレ",
+    keywords: ["イライラ", "怒り", "くやしい"],
+    name: "いかりタイプ",
     visual: {
       animation: {
         idleArmSource: ikariDevilArmsIdle,
@@ -105,14 +128,15 @@ export const evolutionChoices: EvolutionChoice[] = [
     description:
       "かなしさやさみしさを多く食べて育つ進化先。こぼれそうな気持ちに寄り添い、静かにそばにいてくれます。",
     id: "kanashimi",
-    keywords: ["かなしい", "さみしい", "つかれた", "その他"],
-    name: "ナキソ",
+    keywords: ["かなしい", "さみしい", "つらい"],
+    name: "かなしみタイプ",
     visual: {
       imageSource: kanashimiEvolutionImage,
       kind: "image",
       lockedImageSource: kanashimiEvolutionLockedImage,
     },
-  },  {
+  },
+  {
     description:
       "不安や寂しさを多く食べて育つ特殊な進化先。考えすぎてしまう性格だが、相手の小さな変化によく気づく優しいモンスター。揺れる気持ちにもそっと寄り添うことができる。",
     id: "yurari",
@@ -177,7 +201,8 @@ export const evolutionChoices: EvolutionChoice[] = [
       imageSource: kaburiEvolutionImage,
       kind: "image",
     },
-  },];
+  },
+];
 
 export function getEvolutionById(id: EvolutionId | null) {
   if (!id) return null;
@@ -185,22 +210,45 @@ export function getEvolutionById(id: EvolutionId | null) {
 }
 
 export function getEvolutionCandidates(logs: EmotionLogEntry[]) {
-  const counts = logs.reduce<Record<string, number>>((result, log) => {
-    result[log.feeling] = (result[log.feeling] ?? 0) + 1;
-    return result;
-  }, {});
-
   return evolutionChoices
-    .filter((choice) => choice.canEvolve !== false)
+    .filter((choice) => choice.canEvolve === true)
     .map((choice, index) => ({
       choice,
       index,
-      score: choice.keywords.reduce(
-        (total, keyword) => total + (counts[keyword] ?? 0),
-        0
-      ),
+      score: getEvolutionScore(logs, choice.id),
     }))
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .map((item) => item.choice)
     .slice(0, 3);
+}
+
+export function getDominantEvolution(logs: EmotionLogEntry[]) {
+  const autoEvolutionChoices = evolutionChoices.filter(
+    (choice) => choice.canEvolve === true
+  );
+  const scoredChoices = autoEvolutionChoices.map((choice, index) => ({
+    choice,
+    index,
+    score: getEvolutionScore(logs, choice.id),
+  }));
+
+  scoredChoices.sort((a, b) => b.score - a.score || a.index - b.index);
+
+  return (
+    scoredChoices[0]?.choice ??
+    autoEvolutionChoices[0] ??
+    evolutionChoices[0]
+  );
+}
+
+export function getEvolutionIdForFeeling(feeling: string) {
+  return evolutionIdByFeeling.get(feeling) ?? null;
+}
+
+function getEvolutionScore(logs: EmotionLogEntry[], evolutionId: EvolutionId) {
+  return logs.reduce((total, log) => {
+    return getEvolutionIdForFeeling(log.feeling) === evolutionId
+      ? total + 1
+      : total;
+  }, 0);
 }

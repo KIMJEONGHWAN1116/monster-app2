@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import LottieView from "lottie-react-native";
 import type { EvolutionAnimation, EvolutionVisual } from "../state/evolution";
+import { getPlacedShopItems, RoomItemPlacements } from "../state/shopItems";
 
 const stageBackground = require("../../../assets/images/home/monster-stage-background.png");
 const monsterBodyIdle = require("../../../assets/lottie/monster_body_idle.json");
@@ -24,20 +25,29 @@ const noBrowserPanStyle =
 
 type MonsterStageProps = {
   evolutionVisual?: EvolutionVisual | null;
+  roomItemPlacements?: RoomItemPlacements;
   width: number;
 };
 
 type MonsterMotion = "" | "jump" | "squash";
 
-export function MonsterStage({ evolutionVisual, width }: MonsterStageProps) {
+export function MonsterStage({
+  evolutionVisual,
+  roomItemPlacements = {},
+  width,
+}: MonsterStageProps) {
   const [isBlinking, setIsBlinking] = useState(false);
   const [isEvolutionTouched, setIsEvolutionTouched] = useState(false);
   const [motion, setMotion] = useState<MonsterMotion>("");
   const blinkRef = useRef<React.ElementRef<typeof LottieView>>(null);
+  const blinkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const evolutionAnimationRef = useRef<EvolutionAnimation | null>(null);
   const evolutionTouchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const isBlinkingRef = useRef(false);
+  const motionEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const motionRef = useRef<MonsterMotion>("");
   const translateY = useRef(new Animated.Value(0)).current;
   const scaleX = useRef(new Animated.Value(1)).current;
   const scaleY = useRef(new Animated.Value(1)).current;
@@ -52,6 +62,7 @@ export function MonsterStage({ evolutionVisual, width }: MonsterStageProps) {
   const lottieSize = monsterAreaSize * (evolutionAnimation?.stageScale ?? 2.28);
   const monsterRenderHeight = evolutionImage ? monsterAreaSize * 1.2 : lottieSize;
   const monsterRenderWidth = evolutionImage ? monsterAreaSize * 1.02 : lottieSize;
+  const placedItems = getPlacedShopItems(roomItemPlacements);
 
   useEffect(() => {
     setIsEvolutionTouched(false);
@@ -59,8 +70,24 @@ export function MonsterStage({ evolutionVisual, width }: MonsterStageProps) {
       if (evolutionTouchTimerRef.current) {
         clearTimeout(evolutionTouchTimerRef.current);
       }
+      if (blinkTimerRef.current) {
+        clearTimeout(blinkTimerRef.current);
+      }
+      if (motionEndTimerRef.current) {
+        clearTimeout(motionEndTimerRef.current);
+      }
     };
   }, [evolutionVisual]);
+
+  const setBlinkingState = (nextIsBlinking: boolean) => {
+    isBlinkingRef.current = nextIsBlinking;
+    setIsBlinking(nextIsBlinking);
+  };
+
+  const setMotionState = (nextMotion: MonsterMotion) => {
+    motionRef.current = nextMotion;
+    setMotion(nextMotion);
+  };
 
   const resetTransform = () => {
     translateY.setValue(0);
@@ -69,17 +96,22 @@ export function MonsterStage({ evolutionVisual, width }: MonsterStageProps) {
   };
 
   const handleBlink = () => {
-    if (isBlinking || motion !== "") return;
+    if (isBlinkingRef.current || motionRef.current !== "") return;
 
-    setIsBlinking(true);
+    setBlinkingState(true);
 
     requestAnimationFrame(() => {
       blinkRef.current?.reset();
       blinkRef.current?.play();
     });
 
-    setTimeout(() => {
-      setIsBlinking(false);
+    if (blinkTimerRef.current) {
+      clearTimeout(blinkTimerRef.current);
+    }
+
+    blinkTimerRef.current = setTimeout(() => {
+      setBlinkingState(false);
+      blinkTimerRef.current = null;
     }, 700);
   };
 
@@ -115,9 +147,9 @@ export function MonsterStage({ evolutionVisual, width }: MonsterStageProps) {
   };
 
   const runJump = () => {
-    if (motion !== "" || isBlinking) return;
+    if (motionRef.current !== "" || isBlinkingRef.current) return;
 
-    setMotion("jump");
+    setMotionState("jump");
     resetTransform();
 
     Animated.sequence([
@@ -190,15 +222,15 @@ export function MonsterStage({ evolutionVisual, width }: MonsterStageProps) {
         }),
       ]),
     ]).start(() => {
-      setMotion("");
+      setMotionState("");
       resetTransform();
     });
   };
 
   const runSquash = () => {
-    if (motion !== "" || isBlinking) return;
+    if (motionRef.current !== "" || isBlinkingRef.current) return;
 
-    setMotion("squash");
+    setMotionState("squash");
     resetTransform();
 
     Animated.sequence([
@@ -252,9 +284,14 @@ export function MonsterStage({ evolutionVisual, width }: MonsterStageProps) {
         }),
       ]),
     ]).start(() => {
-      setTimeout(() => {
-        setMotion("");
+      if (motionEndTimerRef.current) {
+        clearTimeout(motionEndTimerRef.current);
+      }
+
+      motionEndTimerRef.current = setTimeout(() => {
+        setMotionState("");
         resetTransform();
+        motionEndTimerRef.current = null;
       }, 200);
     });
   };
@@ -294,7 +331,7 @@ export function MonsterStage({ evolutionVisual, width }: MonsterStageProps) {
         clearEvolutionTouchTimer();
         setIsEvolutionTouched(false);
         resetTransform();
-        setMotion("");
+        setMotionState("");
       },
       onPanResponderTerminationRequest: () => false,
       onShouldBlockNativeResponder: () => true,
@@ -431,6 +468,32 @@ export function MonsterStage({ evolutionVisual, width }: MonsterStageProps) {
             </>
           )}
         </Animated.View>
+
+        {placedItems.map(({ item, placement }) => (
+          <View
+            key={item.id}
+            pointerEvents="none"
+            style={[
+              styles.roomItemLayer,
+              {
+                height: monsterAreaSize * placement.height,
+                left: monsterAreaSize * placement.left,
+                top: monsterAreaSize * placement.top,
+                width: monsterAreaSize * placement.width,
+                zIndex: placement.zIndex,
+              },
+              placement.rotate
+                ? { transform: [{ rotate: placement.rotate }] }
+                : null,
+            ]}
+          >
+            <Image
+              resizeMode="contain"
+              source={item.imageSource}
+              style={styles.roomItemImage}
+            />
+          </View>
+        ))}
       </View>
 
     </ImageBackground>
@@ -466,6 +529,13 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 0,
     top: 0,
+  },
+  roomItemImage: {
+    height: "100%",
+    width: "100%",
+  },
+  roomItemLayer: {
+    position: "absolute",
   },
   bodyLayer: {
     zIndex: 1,

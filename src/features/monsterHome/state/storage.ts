@@ -3,9 +3,14 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { EmotionLogEntry } from "./emotionLog";
 import { initialMonsterState, MonsterState } from "./monsterState";
 import { MissionId } from "./missions";
+import { isProfileAvatarId } from "./profile";
 import {
+  getShopItemById,
+  isRoomItemPlacement,
   isShopItemId,
   isShopItemSlot,
+  RoomItemPlacement,
+  RoomItemPlacements,
   ShopItemSlot,
 } from "./shopItems";
 
@@ -61,6 +66,11 @@ export async function loadMonsterState() {
       (parsedMonster as { equippedItemIds?: unknown }).equippedItemIds,
       ownedItemIds
     );
+    const roomItemPlacements = normalizeRoomItemPlacements(
+      (parsedMonster as { roomItemPlacements?: unknown }).roomItemPlacements,
+      ownedItemIds,
+      equippedItemIds
+    );
     const onakaPercent =
       typeof parsedMonster.onakaPercent === "number"
         ? Math.min(Math.max(parsedMonster.onakaPercent, 0), 100)
@@ -69,17 +79,44 @@ export async function loadMonsterState() {
       typeof (parsedMonster as { points?: unknown }).points === "number"
         ? Math.max(0, Math.floor((parsedMonster as { points: number }).points))
         : initialMonsterState.points;
+    const profileAvatarId = isProfileAvatarId(
+      (parsedMonster as { profileAvatarId?: unknown }).profileAvatarId
+    )
+      ? (parsedMonster as { profileAvatarId: MonsterState["profileAvatarId"] })
+          .profileAvatarId
+      : initialMonsterState.profileAvatarId;
+    const profileImageUri =
+      typeof (parsedMonster as { profileImageUri?: unknown }).profileImageUri ===
+      "string"
+        ? (parsedMonster as { profileImageUri: string }).profileImageUri
+        : initialMonsterState.profileImageUri;
+    const userBirthday =
+      typeof (parsedMonster as { userBirthday?: unknown }).userBirthday ===
+      "string"
+        ? (parsedMonster as { userBirthday: string }).userBirthday.slice(0, 24)
+        : initialMonsterState.userBirthday;
+    const hasCompletedProfile =
+      typeof (parsedMonster as { hasCompletedProfile?: unknown })
+        .hasCompletedProfile === "boolean"
+        ? (parsedMonster as { hasCompletedProfile: boolean })
+            .hasCompletedProfile
+        : Boolean(parsedMonster.name && userBirthday);
 
     return {
       ...initialMonsterState,
       claimedMissionIds,
       equippedItemIds,
       evolutionId,
+      hasCompletedProfile,
       name: parsedMonster.name ?? initialMonsterState.name,
       onakaPercent,
       ownedItemIds,
       points,
+      profileAvatarId,
+      profileImageUri,
       registeredEvolutionIds,
+      roomItemPlacements,
+      userBirthday,
     };
   } catch {
     return initialMonsterState;
@@ -111,6 +148,55 @@ function normalizeEquippedItemIds(
 
     return result;
   }, {});
+}
+
+function normalizeRoomItemPlacements(
+  placements: unknown,
+  ownedItemIds: string[],
+  legacyEquippedItemIds: MonsterState["equippedItemIds"]
+): RoomItemPlacements {
+  const normalizedPlacements: RoomItemPlacements = {};
+
+  if (placements && typeof placements === "object") {
+    Object.entries(placements).forEach(([itemId, placement]) => {
+      if (
+        isShopItemId(itemId) &&
+        ownedItemIds.includes(itemId) &&
+        isRoomItemPlacement(placement)
+      ) {
+        normalizedPlacements[itemId] = clampRoomItemPlacement(placement);
+      }
+    });
+  }
+
+  Object.values(legacyEquippedItemIds).forEach((itemId) => {
+    if (!itemId || normalizedPlacements[itemId]) return;
+
+    const item = getShopItemById(itemId);
+
+    if (item && ownedItemIds.includes(itemId)) {
+      normalizedPlacements[itemId] = item.defaultPlacement;
+    }
+  });
+
+  return normalizedPlacements;
+}
+
+function clampRoomItemPlacement(
+  placement: RoomItemPlacement
+): RoomItemPlacement {
+  return {
+    height: clamp(placement.height, 0.06, 0.85),
+    left: clamp(placement.left, -0.2, 1.1),
+    rotate: placement.rotate,
+    top: clamp(placement.top, -0.2, 1.1),
+    width: clamp(placement.width, 0.06, 0.95),
+    zIndex: Math.round(clamp(placement.zIndex, 1, 30)),
+  };
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function normalizeMissionIds(ids: unknown): MissionId[] {

@@ -9,7 +9,6 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 import { BottomTabBar } from "../components/BottomTabBar";
-import { FeedButton } from "../components/FeedButton";
 import { HomeHeader } from "../components/HomeHeader";
 import { HungerCard } from "../components/HungerCard";
 import { MonsterStage } from "../components/MonsterStage";
@@ -20,11 +19,10 @@ import { MonsterTheme, monsterTheme } from "../styles/theme";
 
 type HomeScreenProps = {
   activeTab: MainTabKey;
-  canEvolve: boolean;
   currentEvolution: EvolutionChoice | null;
   monster: MonsterState;
   onDexPress: () => void;
-  onEvolutionPress: () => void;
+  onEditMonsterName: () => void;
   onMissionPress: () => void;
   onMogumoguPress: () => void;
   onTabPress: (tab: MainTabKey) => void;
@@ -33,11 +31,10 @@ type HomeScreenProps = {
 
 export function HomeScreen({
   activeTab,
-  canEvolve,
   currentEvolution,
   monster,
   onDexPress,
-  onEvolutionPress,
+  onEditMonsterName,
   onMissionPress,
   onMogumoguPress,
   onTabPress,
@@ -55,8 +52,7 @@ export function HomeScreen({
     (isCompactHeight ? 30 : 36) +
     (isCompactHeight ? 58 : 72) +
     58 +
-    (canEvolve ? (isCompactHeight ? 58 : 72) : 0) +
-    contentGap * (canEvolve ? 4 : 3);
+    contentGap * 3;
   const stageWidth = Math.min(
     contentWidth,
     Math.max(isCompactHeight ? 172 : 220, (height - estimatedFixedHeight) / 0.92)
@@ -85,17 +81,42 @@ export function HomeScreen({
             },
           ]}
         >
-          <Text
-            numberOfLines={1}
-            style={[
-              styles.monsterName,
-              isCompactHeight && styles.monsterNameCompact,
-            ]}
-          >
-            {monster.name}
-          </Text>
+          <View style={styles.monsterNameRow}>
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.monsterName,
+                isCompactHeight && styles.monsterNameCompact,
+              ]}
+            >
+              {monster.name}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="モンスターのニックネームを変更"
+              onPress={onEditMonsterName}
+              style={({ pressed }) => [
+                styles.nameEditButton,
+                {
+                  backgroundColor: theme.colors.lavenderPale,
+                  borderColor: theme.colors.lavenderTrack,
+                },
+                pressed && styles.quickMenuButtonPressed,
+              ]}
+            >
+              <MaterialCommunityIcons
+                name="pencil"
+                size={17}
+                color={theme.colors.lavender}
+              />
+              <Text style={[styles.nameEditText, { color: theme.colors.lavender }]}>
+                名前変更
+              </Text>
+            </Pressable>
+          </View>
           <MonsterStage
             evolutionVisual={currentEvolution?.visual}
+            roomItemPlacements={monster.roomItemPlacements}
             width={stageWidth}
           />
           <HungerCard
@@ -165,15 +186,6 @@ export function HomeScreen({
               </View>
             </Pressable>
           </View>
-
-          {canEvolve && (
-            <FeedButton
-              compact={isCompactHeight}
-              label="進化しそう！"
-              onPress={onEvolutionPress}
-              theme={theme}
-            />
-          )}
         </View>
       </View>
 
@@ -236,11 +248,30 @@ const styles = StyleSheet.create({
   },
   monsterName: {
     color: monsterTheme.colors.ink,
+    flex: 1,
     fontSize: 28,
     fontWeight: "900",
-    width: "100%",
   },
   monsterNameCompact: {
     fontSize: 24,
+  },
+  monsterNameRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    width: "100%",
+  },
+  nameEditButton: {
+    alignItems: "center",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 4,
+    minHeight: 34,
+    paddingHorizontal: 10,
+  },
+  nameEditText: {
+    fontSize: 12,
+    fontWeight: "900",
   },
 });
