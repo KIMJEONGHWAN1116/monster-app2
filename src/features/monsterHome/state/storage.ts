@@ -1,17 +1,17 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { EmotionLogEntry } from "./emotionLog";
-import { initialMonsterState, MonsterState } from "./monsterState";
 import { MissionId } from "./missions";
+import { initialMonsterState, MonsterState } from "./monsterState";
 import { isProfileAvatarId } from "./profile";
 import {
-  getShopItemById,
-  isRoomItemPlacement,
-  isShopItemId,
-  isShopItemSlot,
-  RoomItemPlacement,
-  RoomItemPlacements,
-  ShopItemSlot,
+    getShopItemById,
+    isRoomItemPlacement,
+    isShopItemId,
+    isShopItemSlot,
+    RoomItemPlacement,
+    RoomItemPlacements,
+    ShopItemSlot,
 } from "./shopItems";
 
 const emotionLogsKey = "monster-app:emotion-logs";
@@ -75,6 +75,13 @@ export async function loadMonsterState() {
       typeof parsedMonster.onakaPercent === "number"
         ? Math.min(Math.max(parsedMonster.onakaPercent, 0), 100)
         : initialMonsterState.onakaPercent;
+    const bgmTrack = normalizeBgmTrack(
+      (parsedMonster as { bgmTrack?: unknown }).bgmTrack
+    );
+    const bgmVolume =
+      typeof (parsedMonster as { bgmVolume?: unknown }).bgmVolume === "number"
+        ? Math.min(Math.max((parsedMonster as { bgmVolume: number }).bgmVolume, 0), 1)
+        : initialMonsterState.bgmVolume;
     const points =
       typeof (parsedMonster as { points?: unknown }).points === "number"
         ? Math.max(0, Math.floor((parsedMonster as { points: number }).points))
@@ -104,6 +111,8 @@ export async function loadMonsterState() {
 
     return {
       ...initialMonsterState,
+      bgmTrack,
+      bgmVolume,
       claimedMissionIds,
       equippedItemIds,
       evolutionId,
@@ -121,6 +130,10 @@ export async function loadMonsterState() {
   } catch {
     return initialMonsterState;
   }
+}
+
+function normalizeBgmTrack(track: unknown): MonsterState["bgmTrack"] {
+  return track === "hidamari" ? "hidamari" : "nukumori";
 }
 
 function normalizeShopItemIds(ids: unknown) {

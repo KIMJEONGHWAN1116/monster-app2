@@ -2,36 +2,36 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ViewStyle } from "react-native";
 import {
-  Animated,
-  Image,
-  Modal,
-  PanResponder,
-  Platform,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  useWindowDimensions,
-  View,
-  type LayoutChangeEvent,
+    Animated,
+    Image,
+    Modal,
+    PanResponder,
+    Platform,
+    Pressable,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    useWindowDimensions,
+    View,
+    type LayoutChangeEvent,
 } from "react-native";
 
 import { BottomTabBar } from "../components/BottomTabBar";
 import { HomeHeader } from "../components/HomeHeader";
 import { MonsterPreview } from "../components/MonsterPreview";
 import { EvolutionChoice } from "../state/evolution";
-import { MonsterState } from "../state/monsterState";
+import { MonsterState, type BgmTrackId } from "../state/monsterState";
 import { MainTabKey } from "../state/navigation";
 import { getProfileAvatarOption } from "../state/profile";
 import {
-  getPlacedShopItems,
-  RoomItemPlacement,
-  RoomItemPlacements,
-  ShopItem,
-  shopItems,
-  slotLabels,
+    getPlacedShopItems,
+    RoomItemPlacement,
+    RoomItemPlacements,
+    ShopItem,
+    shopItems,
+    slotLabels,
 } from "../state/shopItems";
 import { MonsterTheme, monsterTheme } from "../styles/theme";
 
@@ -42,9 +42,13 @@ const noBrowserPanStyle =
 
 type MyPageScreenProps = {
   activeTab: MainTabKey;
+  bgmTrack: BgmTrackId;
+  bgmVolume: number;
   currentEvolution: EvolutionChoice | null;
   logCount: number;
   monster: MonsterState;
+  onBgmTrackChange: (track: BgmTrackId) => void;
+  onBgmVolumeChange: (volume: number) => void;
   onMogumoguPress: () => void;
   onEditProfile: () => void;
   onResetData: () => void;
@@ -55,9 +59,13 @@ type MyPageScreenProps = {
 
 export function MyPageScreen({
   activeTab,
+  bgmTrack,
+  bgmVolume,
   currentEvolution,
   logCount,
   monster,
+  onBgmTrackChange,
+  onBgmVolumeChange,
   onMogumoguPress,
   onEditProfile,
   onResetData,
@@ -66,7 +74,6 @@ export function MyPageScreen({
   theme = monsterTheme,
 }: MyPageScreenProps) {
   const { width } = useWindowDimensions();
-  const [bgmVolume, setBgmVolume] = useState(0.75);
   const [draftPlacements, setDraftPlacements] = useState<RoomItemPlacements>(
     monster.roomItemPlacements
   );
@@ -647,13 +654,41 @@ export function MyPageScreen({
                   </Pressable>
                 </View>
 
-                <ScrollView
-                  style={styles.settingsScroll}
-                  showsVerticalScrollIndicator={false}
-                >
+                <View style={styles.settingsScroll}>
+              <View style={styles.settingSection}>
+                <Text style={styles.settingSectionTitle}>BGM</Text>
+                <View style={styles.bgmOptionGroup}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="ぬくもりの曲を選ぶ"
+                    onPress={() => onBgmTrackChange("nukumori")}
+                    style={({ pressed }) => [
+                      styles.bgmOptionButton,
+                      bgmTrack === "nukumori" && styles.bgmOptionButtonSelected,
+                      pressed && styles.buttonPressed,
+                    ]}
+                  >
+                    <Text style={styles.bgmOptionTitle}>ぬくもりの曲</Text>
+                    <Text style={styles.bgmOptionSubtitle}>nukumoriBGM.mp3</Text>
+                  </Pressable>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="陽だまりの曲を選ぶ"
+                    onPress={() => onBgmTrackChange("hidamari")}
+                    style={({ pressed }) => [
+                      styles.bgmOptionButton,
+                      bgmTrack === "hidamari" && styles.bgmOptionButtonSelected,
+                      pressed && styles.buttonPressed,
+                    ]}
+                  >
+                    <Text style={styles.bgmOptionTitle}>陽だまりの曲</Text>
+                    <Text style={styles.bgmOptionSubtitle}>hidamariBGM.mp3</Text>
+                  </Pressable>
+                </View>
+              </View>
               <SettingSliderRow
                 label="BGM音量"
-                onValueChange={setBgmVolume}
+                onValueChange={onBgmVolumeChange}
                 value={bgmVolume}
               />
               <SettingSliderRow
@@ -724,7 +759,7 @@ export function MyPageScreen({
                   </Text>
                 </View>
               </Pressable>
-            </ScrollView>
+            </View>
               </>
             )}
           </View>
@@ -1177,6 +1212,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
   },
+  settingSection: {
+    marginBottom: 18,
+  },
+  settingSectionTitle: {
+    color: "#25265e",
+    fontSize: 13,
+    fontWeight: "900",
+    marginBottom: 8,
+  },
   settingLabel: {
     color: "#25265e",
     fontSize: 15,
@@ -1187,6 +1231,30 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 16,
+  },
+  bgmOptionButton: {
+    borderColor: "rgba(188, 191, 229, 0.64)",
+    borderRadius: 16,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  bgmOptionButtonSelected: {
+    backgroundColor: "rgba(255, 242, 248, 0.86)",
+    borderColor: "#f3a2c8",
+  },
+  bgmOptionGroup: {
+    gap: 10,
+  },
+  bgmOptionSubtitle: {
+    color: "#6e6f94",
+    fontSize: 12,
+    marginTop: 2,
+  },
+  bgmOptionTitle: {
+    color: "#25265e",
+    fontSize: 14,
+    fontWeight: "900",
   },
   settingTextBlock: {
     flex: 1,
