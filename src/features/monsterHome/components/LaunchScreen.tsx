@@ -1,196 +1,166 @@
 import {
-  ImageBackground,
+  Animated,
+  Image,
   Pressable,
   SafeAreaView,
   StyleSheet,
-  Text,
   useWindowDimensions,
   View,
 } from "react-native";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useEffect, useRef } from "react";
 
-import { monsterTheme } from "../styles/theme";
-import { MonsterPreview } from "./MonsterPreview";
-
-const stageBackgroundImage = require("../../../assets/images/home/monster-stage-background.png");
+const launchScreenDesign = require("../../../assets/images/launch/launch-screen-design.png");
+const launchLogo = require("../../../assets/images/launch/launch-logo.png");
+const launchSilhouette = require("../../../assets/images/launch/launch-silhouette.png");
 
 type LaunchScreenProps = {
   onStart: () => void;
 };
 
 export function LaunchScreen({ onStart }: LaunchScreenProps) {
-  const { height, width } = useWindowDimensions();
-  const contentWidth = Math.min(width - 40, 430);
-  const monsterSize = Math.min(contentWidth * 0.58, height * 0.26, 240);
+  const { width } = useWindowDimensions();
+  const artboardWidth = Math.min(width, 430);
+  const logoSize = artboardWidth * 0.84;
+  const silhouetteSize = artboardWidth * 0.7;
+  const floatProgress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const floatingAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatProgress, {
+          duration: 2200,
+          toValue: 1,
+          useNativeDriver: true,
+        }),
+        Animated.timing(floatProgress, {
+          duration: 2200,
+          toValue: 0,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    floatingAnimation.start();
+    return () => floatingAnimation.stop();
+  }, [floatProgress]);
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={[styles.content, { width: contentWidth }]}>
-        <View style={styles.titleBlock}>
-          <Text style={styles.kicker}>MOGUMON DIARY</Text>
-          <Text style={styles.title}>マイモンスター</Text>
-          <Text style={styles.subtitle}>
-            モヤモヤを食べて、きみのそばで少しずつ育つ。
-          </Text>
-        </View>
-
-        <View
-          style={[
-            styles.stageCard,
-            {
-              borderColor: monsterTheme.colors.lavenderTrack,
-            },
-            monsterTheme.shadow,
-          ]}
-        >
-          <ImageBackground
-            imageStyle={styles.stageBackgroundImage}
-            resizeMode="cover"
-            source={stageBackgroundImage}
-            style={styles.stageBackground}
-          >
-            <View style={styles.sparkleOne}>
-              <MaterialCommunityIcons
-                name="star-four-points"
-                size={23}
-                color="#ffffff"
-              />
-            </View>
-            <MonsterPreview size={monsterSize} />
-          </ImageBackground>
-        </View>
-
-        <View style={styles.messagePill}>
-          <MaterialCommunityIcons
-            name="silverware-fork-knife"
-            size={20}
-            color={monsterTheme.colors.lavender}
-          />
-          <Text style={styles.messageText}>今日のモヤモヤ、食べてもいい？</Text>
-        </View>
-      </View>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="はじめる"
-        onPress={onStart}
-        style={({ pressed }) => [
-          styles.startButton,
-          monsterTheme.shadow,
-          pressed && styles.startButtonPressed,
-        ]}
-      >
-        <Text style={styles.startButtonText}>はじめる</Text>
-        <MaterialCommunityIcons
-          name="chevron-right"
-          size={26}
-          color={monsterTheme.colors.white}
+      <View style={[styles.artboard, { width: artboardWidth }]}>
+        <Image
+          resizeMode="stretch"
+          source={launchScreenDesign}
+          style={styles.designImage}
         />
-      </Pressable>
+
+        <Image
+          resizeMode="contain"
+          source={launchLogo}
+          style={[
+            styles.logo,
+            {
+              height: logoSize,
+              marginLeft: -logoSize / 2,
+              width: logoSize,
+            },
+          ]}
+        />
+
+        <Animated.Image
+          resizeMode="contain"
+          source={launchSilhouette}
+          style={[
+            styles.silhouette,
+            {
+              height: silhouetteSize,
+              marginLeft: -silhouetteSize / 2,
+              opacity: floatProgress.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.62, 0.76],
+              }),
+              transform: [
+                {
+                  translateY: floatProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [3, -6],
+                  }),
+                },
+                {
+                  rotate: floatProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ["-0.7deg", "0.7deg"],
+                  }),
+                },
+                {
+                  scale: floatProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.99, 1.01],
+                  }),
+                },
+              ],
+              width: silhouetteSize,
+            },
+          ]}
+        />
+
+        <Pressable
+          accessibilityLabel="はじめる"
+          accessibilityRole="button"
+          onPress={onStart}
+          style={({ pressed }) => [
+            styles.startHotspot,
+            pressed && styles.startPressed,
+          ]}
+        />
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    alignItems: "center",
-    backgroundColor: monsterTheme.colors.background,
-    flex: 1,
-    justifyContent: "space-between",
-    overflow: "hidden",
-    paddingHorizontal: 20,
-    paddingVertical: 44,
-  },
-  content: {
-    alignItems: "center",
-    flex: 1,
-    justifyContent: "center",
-  },
-  kicker: {
-    color: monsterTheme.colors.lavender,
-    fontSize: 13,
-    fontWeight: "900",
-    letterSpacing: 0,
-  },
-  messagePill: {
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.76)",
-    borderColor: monsterTheme.colors.lavenderTrack,
-    borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 18,
-    minHeight: 46,
-    paddingHorizontal: 18,
-  },
-  messageText: {
-    color: monsterTheme.colors.ink,
-    fontSize: 15,
-    fontWeight: "900",
-  },
-  sparkleOne: {
-    left: "16%",
-    position: "absolute",
-    top: "20%",
-  },
-  stageBackground: {
-    alignItems: "center",
-    aspectRatio: 0.95,
-    justifyContent: "flex-end",
-    overflow: "hidden",
-    paddingBottom: 12,
-    width: "100%",
-  },
-  stageBackgroundImage: {
-    borderRadius: 32,
-  },
-  stageCard: {
-    backgroundColor: "rgba(255, 255, 255, 0.58)",
-    borderRadius: 32,
-    borderWidth: 1,
-    marginTop: 28,
-    overflow: "hidden",
-    width: "100%",
-  },
-  startButton: {
-    alignItems: "center",
+  artboard: {
     alignSelf: "center",
-    backgroundColor: monsterTheme.colors.lavender,
-    borderColor: "rgba(255, 255, 255, 0.82)",
+    flex: 1,
+    overflow: "hidden",
+    position: "relative",
+  },
+  container: {
+    backgroundColor: "#fbf9ff",
+    flex: 1,
+    overflow: "hidden",
+  },
+  designImage: {
+    bottom: 0,
+    height: "100%",
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
+    width: "100%",
+  },
+  logo: {
+    left: "50%",
+    position: "absolute",
+    top: "-0.8%",
+    zIndex: 5,
+  },
+  silhouette: {
+    left: "50%",
+    position: "absolute",
+    top: "29.2%",
+    zIndex: 4,
+  },
+  startHotspot: {
     borderRadius: 999,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "center",
-    minHeight: 66,
-    width: "92%",
+    height: "8.6%",
+    left: "11.5%",
+    position: "absolute",
+    top: "82.2%",
+    width: "77%",
+    zIndex: 10,
   },
-  startButtonPressed: {
-    opacity: 0.82,
-    transform: [{ scale: 0.99 }],
-  },
-  startButtonText: {
-    color: monsterTheme.colors.white,
-    fontSize: 25,
-    fontWeight: "900",
-  },
-  subtitle: {
-    color: monsterTheme.colors.muted,
-    fontSize: 16,
-    fontWeight: "700",
-    lineHeight: 24,
-    marginTop: 12,
-    textAlign: "center",
-  },
-  title: {
-    color: monsterTheme.colors.ink,
-    fontSize: 40,
-    fontWeight: "900",
-    marginTop: 8,
-    textAlign: "center",
-  },
-  titleBlock: {
-    alignItems: "center",
+  startPressed: {
+    backgroundColor: "rgba(92, 65, 184, 0.12)",
+    transform: [{ scale: 0.985 }],
   },
 });

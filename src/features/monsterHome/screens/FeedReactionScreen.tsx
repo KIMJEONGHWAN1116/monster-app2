@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import {
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -10,11 +10,14 @@ import {
   View,
 } from "react-native";
 
-import { MonsterPreview } from "../components/MonsterPreview";
+import { DressedMonsterPreview } from "../components/DressedMonsterPreview";
 import { generateGeminiMonsterReaction } from "../services/geminiReaction";
 import { EvolutionChoice } from "../state/evolution";
 import { FeedEmotion } from "../state/monsterState";
+import { RoomItemPlacements } from "../state/shopItems";
 import { MonsterTheme, monsterTheme } from "../styles/theme";
+
+const feedReactionDesign = require("../../../assets/images/feed/feed-reaction-design.png");
 
 type FeedReactionScreenProps = {
   currentEvolution: EvolutionChoice | null;
@@ -24,6 +27,7 @@ type FeedReactionScreenProps = {
   onBack: () => void;
   onClose: () => void;
   onGoLog: () => void;
+  roomItemPlacements: RoomItemPlacements;
   theme?: MonsterTheme;
 };
 
@@ -35,11 +39,12 @@ export function FeedReactionScreen({
   onBack,
   onClose,
   onGoLog,
+  roomItemPlacements,
   theme = monsterTheme,
 }: FeedReactionScreenProps) {
-  const { height, width } = useWindowDimensions();
-  const contentWidth = Math.min(width - 44, 430);
-  const monsterSize = Math.min(contentWidth * 0.58, height * 0.22, 240);
+  const { width } = useWindowDimensions();
+  const artboardWidth = Math.min(width, 430);
+  const monsterSize = artboardWidth * 0.47;
   const fallbackReactionText = getReactionText(emotion.feeling);
   const [reactionText, setReactionText] = useState(fallbackReactionText);
   const [isReactionLoading, setIsReactionLoading] = useState(false);
@@ -52,16 +57,13 @@ export function FeedReactionScreen({
 
     generateGeminiMonsterReaction(emotion)
       .then((geminiReaction) => {
-        if (!isMounted) return;
-        setReactionText(geminiReaction ?? fallbackReactionText);
+        if (isMounted) setReactionText(geminiReaction ?? fallbackReactionText);
       })
       .catch(() => {
-        if (!isMounted) return;
-        setReactionText(fallbackReactionText);
+        if (isMounted) setReactionText(fallbackReactionText);
       })
       .finally(() => {
-        if (!isMounted) return;
-        setIsReactionLoading(false);
+        if (isMounted) setIsReactionLoading(false);
       });
 
     return () => {
@@ -73,175 +75,85 @@ export function FeedReactionScreen({
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <View style={styles.header}>
+      <View style={[styles.artboard, { width: artboardWidth }]}>
+        <Image
+          resizeMode="stretch"
+          source={feedReactionDesign}
+          style={styles.designImage}
+        />
+
         <Pressable
-          accessibilityRole="button"
           accessibilityLabel="戻る"
+          accessibilityRole="button"
+          hitSlop={8}
           onPress={onBack}
           style={({ pressed }) => [
-            styles.circleButton,
-            {
-              backgroundColor: "rgba(255, 255, 255, 0.78)",
-              borderColor: theme.colors.lavenderTrack,
-            },
-            theme.shadow,
-            pressed && styles.pressed,
+            styles.backHotspot,
+            pressed && styles.hotspotPressed,
           ]}
-        >
-          <Ionicons name="chevron-back" size={33} color="#23245b" />
-        </Pressable>
-
-        <Text style={styles.headerTitle}>モヤモヤ、もぐもぐ</Text>
-
+        />
         <Pressable
-          accessibilityRole="button"
           accessibilityLabel="閉じる"
+          accessibilityRole="button"
+          hitSlop={8}
           onPress={onClose}
           style={({ pressed }) => [
-            styles.circleButton,
-            {
-              backgroundColor: "rgba(255, 255, 255, 0.78)",
-              borderColor: theme.colors.lavenderTrack,
-            },
-            theme.shadow,
-            pressed && styles.pressed,
+            styles.closeHotspot,
+            pressed && styles.hotspotPressed,
           ]}
+        />
+
+        <View
+          pointerEvents="none"
+          style={[styles.monsterSlot, { height: monsterSize, width: monsterSize }]}
         >
-          <Ionicons name="close" size={34} color="#23245b" />
-        </Pressable>
-      </View>
-
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={[styles.content, { width: contentWidth }]}>
-          <View
-            style={[
-              styles.speechBubble,
-              {
-                backgroundColor: theme.colors.lavenderPale,
-                borderColor: theme.colors.lavenderSoft,
-              },
-            ]}
-          >
-            <Text style={[styles.speechText, { color: theme.colors.lavender }]}>
-              モヤモヤを食べたよ
-            </Text>
-            <Text style={styles.speechSparkleLeft}>✦</Text>
-            <Text style={styles.speechSparkleRight}>✦</Text>
-            <Text style={styles.speechHeart}>♥</Text>
-            <View
-              style={[
-                styles.speechTail,
-                {
-                  backgroundColor: theme.colors.lavenderPale,
-                  borderBottomColor: theme.colors.lavenderSoft,
-                  borderRightColor: theme.colors.lavenderSoft,
-                },
-              ]}
-            />
-          </View>
-
-          <View style={styles.monsterWrap}>
-            <MonsterPreview
-              evolutionVisual={currentEvolution?.visual}
-              size={monsterSize}
-            />
-          </View>
-
-          <View
-            style={[
-              styles.eatenCard,
-              {
-                backgroundColor: "rgba(255, 255, 255, 0.8)",
-                borderColor: theme.colors.lavenderTrack,
-              },
-              theme.shadow,
-            ]}
-          >
-            <Text style={styles.cardTitle}>食べたモヤモヤ</Text>
-            <Text
-              numberOfLines={2}
-              style={[styles.noteText, { color: theme.colors.lavender }]}
-            >
-              {emotion.note}
-            </Text>
-
-            <View style={styles.divider} />
-
-            <View
-              style={[
-                styles.gainBox,
-                { backgroundColor: theme.colors.lavenderPale },
-              ]}
-            >
-              <Text style={styles.gainLabel}>おなか</Text>
-              <Text style={[styles.gainValue, { color: theme.colors.lavender }]}>
-                +{gainedPercent}
-              </Text>
-              <Text style={styles.gainSparkle}>✦</Text>
-            </View>
-          </View>
-
-          <Text style={styles.sectionTitle}>✦ モンスター反応 ✦</Text>
-
-          <View
-            style={[
-              styles.reactionBox,
-              {
-                backgroundColor: theme.colors.lavenderPale,
-                borderColor: theme.colors.lavenderSoft,
-              },
-            ]}
-          >
-            <Text style={styles.reactionHeart}>♥</Text>
-            <Text style={styles.reactionText}>
-              {isReactionLoading ? "モンスターが味わっています..." : reactionText}
-            </Text>
-          </View>
-
-          <View style={styles.actionRow}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="もう一回"
-              onPress={onAgain}
-              style={({ pressed }) => [
-                styles.actionButton,
-                styles.againButton,
-                { borderColor: "#f0a6cc" },
-                pressed && styles.pressed,
-              ]}
-            >
-              <MaterialCommunityIcons name="refresh" size={28} color="#ee82b8" />
-              <Text style={[styles.actionText, styles.againText]}>もう一回</Text>
-            </Pressable>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="きろく"
-              onPress={onGoLog}
-              style={({ pressed }) => [
-                styles.actionButton,
-                {
-                  backgroundColor: "rgba(255, 255, 255, 0.78)",
-                  borderColor: theme.colors.lavenderSoft,
-                },
-                pressed && styles.pressed,
-              ]}
-            >
-              <MaterialCommunityIcons
-                name="notebook-outline"
-                size={29}
-                color={theme.colors.lavender}
-              />
-              <Text style={[styles.actionText, { color: theme.colors.lavender }]}>
-                きろく
-              </Text>
-            </Pressable>
-          </View>
+          <DressedMonsterPreview
+            evolutionVisual={currentEvolution?.visual}
+            roomItemPlacements={roomItemPlacements}
+            size={monsterSize}
+          />
         </View>
-      </ScrollView>
+
+        <View style={styles.noteSurface}>
+          <Text style={styles.noteText}>{emotion.note}</Text>
+        </View>
+
+        <View style={styles.gainSurface}>
+          <Text style={styles.gainValue}>+{gainedPercent}</Text>
+        </View>
+
+        <ScrollView
+          bounces={false}
+          contentContainerStyle={styles.reactionContent}
+          showsVerticalScrollIndicator={false}
+          style={styles.reactionSurface}
+        >
+          <Text style={styles.reactionText}>
+            {isReactionLoading
+              ? "モンスターが味わっています..."
+              : reactionText}
+          </Text>
+        </ScrollView>
+
+        <Pressable
+          accessibilityLabel="もう一回"
+          accessibilityRole="button"
+          onPress={onAgain}
+          style={({ pressed }) => [
+            styles.againHotspot,
+            pressed && styles.actionPressed,
+          ]}
+        />
+        <Pressable
+          accessibilityLabel="きろく"
+          accessibilityRole="button"
+          onPress={onGoLog}
+          style={({ pressed }) => [
+            styles.logHotspot,
+            pressed && styles.actionPressed,
+          ]}
+        />
+      </View>
     </SafeAreaView>
   );
 }
@@ -263,205 +175,133 @@ function getReactionText(feeling: string) {
 }
 
 const styles = StyleSheet.create({
-  actionButton: {
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.78)",
-    borderColor: monsterTheme.colors.lavenderSoft,
-    borderRadius: 25,
-    borderWidth: 2,
+  actionPressed: {
+    backgroundColor: "rgba(118, 87, 227, 0.08)",
+    transform: [{ scale: 0.985 }],
+  },
+  againHotspot: {
+    borderRadius: 18,
+    height: "7.2%",
+    left: "7.5%",
+    position: "absolute",
+    top: "88.1%",
+    width: "41%",
+    zIndex: 12,
+  },
+  artboard: {
+    alignSelf: "center",
     flex: 1,
-    flexDirection: "row",
-    gap: 10,
-    justifyContent: "center",
-    minHeight: 60,
+    overflow: "hidden",
+    position: "relative",
   },
-  actionRow: {
-    flexDirection: "row",
-    gap: 14,
-    marginTop: 16,
-  },
-  actionText: {
-    fontSize: 20,
-    fontWeight: "900",
-  },
-  againButton: {
-    backgroundColor: "rgba(255, 239, 249, 0.82)",
-    borderColor: "#ffd4e8",
-  },
-  againText: {
-    color: "#ee82b8",
-  },
-  cardTitle: {
-    color: "#25265e",
-    fontSize: 22,
-    fontWeight: "900",
-    textAlign: "center",
-  },
-  circleButton: {
-    alignItems: "center",
+  backHotspot: {
     borderRadius: 999,
-    borderWidth: 1,
-    height: 56,
-    justifyContent: "center",
-    width: 56,
+    height: "5.5%",
+    left: "6.8%",
+    position: "absolute",
+    top: "3.8%",
+    width: "11.5%",
+    zIndex: 20,
+  },
+  closeHotspot: {
+    borderRadius: 999,
+    height: "5.5%",
+    position: "absolute",
+    right: "6.8%",
+    top: "3.8%",
+    width: "11.5%",
+    zIndex: 20,
   },
   container: {
     flex: 1,
-  },
-  content: {
-    alignSelf: "center",
-    paddingBottom: 20,
-  },
-  divider: {
-    borderColor: "#e8def8",
-    borderStyle: "dashed",
-    borderTopWidth: 1,
-    marginVertical: 14,
-  },
-  eatenCard: {
-    borderRadius: 22,
-    borderWidth: 2,
-    padding: 18,
-  },
-  gainBox: {
-    alignItems: "center",
-    borderRadius: 19,
-    flexDirection: "row",
-    justifyContent: "center",
-    minHeight: 58,
     overflow: "hidden",
   },
-  gainLabel: {
-    color: "#25265e",
-    fontSize: 19,
-    fontWeight: "900",
-    marginRight: 22,
+  designImage: {
+    bottom: 0,
+    height: "100%",
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
+    width: "100%",
   },
-  gainSparkle: {
-    color: "#efc545",
-    fontSize: 22,
-    marginLeft: 10,
+  gainSurface: {
+    alignItems: "center",
+    backgroundColor: "rgba(240, 232, 255, 0.97)",
+    borderRadius: 999,
+    height: "4.7%",
+    justifyContent: "center",
+    left: "47.7%",
+    position: "absolute",
+    top: "59%",
+    width: "26.9%",
+    zIndex: 8,
   },
   gainValue: {
-    backgroundColor: "rgba(255, 255, 255, 0.58)",
-    borderRadius: 24,
-    fontSize: 32,
+    color: "#7657e3",
+    fontSize: 27,
     fontWeight: "900",
-    minWidth: 92,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    textAlign: "center",
+    letterSpacing: 0,
   },
-  header: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 8,
+  hotspotPressed: {
+    backgroundColor: "rgba(118, 87, 227, 0.08)",
   },
-  headerTitle: {
-    color: "#25265e",
-    flex: 1,
-    fontSize: 26,
-    fontWeight: "900",
-    textAlign: "center",
+  logHotspot: {
+    borderRadius: 18,
+    height: "7.2%",
+    position: "absolute",
+    right: "7.6%",
+    top: "88.1%",
+    width: "40.9%",
+    zIndex: 12,
   },
-  monsterWrap: {
+  monsterSlot: {
     alignItems: "center",
     alignSelf: "center",
     justifyContent: "center",
-    marginTop: 4,
-    overflow: "visible",
+    left: "26.5%",
+    position: "absolute",
+    top: "19.2%",
+    zIndex: 6,
+  },
+  noteSurface: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.96)",
+    height: "4.5%",
+    justifyContent: "center",
+    left: "13%",
+    position: "absolute",
+    top: "51.5%",
+    width: "74%",
+    zIndex: 8,
   },
   noteText: {
-    fontSize: 19,
-    fontWeight: "900",
-    lineHeight: 28,
-    marginTop: 14,
-    textAlign: "center",
-  },
-  pressed: {
-    opacity: 0.76,
-    transform: [{ scale: 0.98 }],
-  },
-  reactionBox: {
-    alignItems: "center",
-    borderRadius: 999,
-    borderWidth: 2,
-    flexDirection: "row",
-    gap: 14,
-    justifyContent: "center",
-    minHeight: 56,
-    paddingHorizontal: 18,
-  },
-  reactionHeart: {
-    color: "#ee74b5",
-    fontSize: 25,
-    fontWeight: "900",
-  },
-  reactionText: {
-    color: "#25265e",
-    flex: 1,
+    color: "#7567cf",
     fontSize: 16,
     fontWeight: "800",
-    lineHeight: 23,
+    letterSpacing: 0,
+    lineHeight: 21,
     textAlign: "center",
   },
-  scrollContent: {
-    paddingTop: 18,
-  },
-  sectionTitle: {
-    color: "#25265e",
-    fontSize: 18,
-    fontWeight: "900",
-    marginBottom: 12,
-    marginTop: 16,
-    textAlign: "center",
-  },
-  speechBubble: {
-    alignItems: "center",
-    alignSelf: "center",
-    borderRadius: 30,
-    borderWidth: 2,
+  reactionContent: {
+    flexGrow: 1,
     justifyContent: "center",
-    minHeight: 76,
-    paddingHorizontal: 30,
-    position: "relative",
-    width: "76%",
+    paddingVertical: 3,
   },
-  speechHeart: {
-    color: "#ed75b4",
-    fontSize: 24,
+  reactionSurface: {
+    backgroundColor: "rgba(249, 247, 255, 0.97)",
+    height: "9.1%",
+    left: "23.5%",
     position: "absolute",
-    right: 22,
-    top: 24,
+    top: "74.8%",
+    width: "64.5%",
+    zIndex: 8,
   },
-  speechSparkleLeft: {
-    color: "#ffffff",
-    fontSize: 18,
-    left: 28,
-    position: "absolute",
-    top: 20,
-  },
-  speechSparkleRight: {
-    color: "#ffffff",
-    fontSize: 18,
-    position: "absolute",
-    right: 56,
-    top: 46,
-  },
-  speechTail: {
-    borderBottomWidth: 2,
-    borderRightWidth: 2,
-    bottom: -9,
-    height: 18,
-    position: "absolute",
-    transform: [{ rotate: "45deg" }],
-    width: 18,
-  },
-  speechText: {
-    fontSize: 22,
-    fontWeight: "900",
-    textAlign: "center",
+  reactionText: {
+    color: "#29236f",
+    fontSize: 15,
+    fontWeight: "800",
+    letterSpacing: 0,
+    lineHeight: 22,
   },
 });

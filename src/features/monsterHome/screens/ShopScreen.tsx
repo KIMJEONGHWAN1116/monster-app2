@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useMemo, useState } from "react";
 import {
   Image,
   Pressable,
@@ -12,15 +12,15 @@ import {
 } from "react-native";
 
 import { BottomTabBar } from "../components/BottomTabBar";
-import { HomeHeader } from "../components/HomeHeader";
 import { MainTabKey } from "../state/navigation";
 import {
   ShopItem,
   shopItems,
   ShopItemSlot,
-  slotLabels,
 } from "../state/shopItems";
 import { MonsterTheme, monsterTheme } from "../styles/theme";
+
+const shopRoomBackground = require("../../../assets/images/shop/shop-room-background.png");
 
 const categoryTabs: Array<{ key: ShopItemSlot | "all"; label: string }> = [
   { key: "all", label: "ぜんぶ" },
@@ -52,8 +52,10 @@ export function ShopScreen({
   const [activeCategory, setActiveCategory] = useState<ShopItemSlot | "all">(
     "all"
   );
-  const contentWidth = Math.min(width - 32, 430);
-  const cardWidth = (contentWidth - 12) / 2;
+  const contentWidth = Math.min(width - 24, 430);
+  const gridGap = 8;
+  const cardWidth = (contentWidth - gridGap * 2) / 3;
+  const imageFrameHeight = Math.max(74, Math.min(96, cardWidth * 0.78));
   const ownedSet = useMemo(() => new Set(ownedItemIds), [ownedItemIds]);
   const visibleItems = useMemo(
     () =>
@@ -67,48 +69,66 @@ export function ShopScreen({
     <SafeAreaView
       style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
-      <HomeHeader theme={theme} />
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <Image
+          resizeMode="cover"
+          source={shopRoomBackground}
+          style={styles.backgroundImage}
+        />
+      </View>
+
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: "rgba(255, 255, 255, 0.88)",
+            borderColor: theme.colors.lavenderTrack,
+          },
+          styles.headerShadow,
+        ]}
+      >
+        <Text style={styles.headerTitle}>ショップ</Text>
+      </View>
 
       <ScrollView
+        bounces={false}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.content, { width: contentWidth }]}>
           <View style={styles.titleRow}>
-            <View>
-              <Text style={[styles.title, { color: theme.colors.lavender }]}>
-                ショップ
-              </Text>
-              <Text style={styles.subtitle}>モンスターのおきがえ</Text>
-            </View>
+            <Text style={styles.subtitle}>モンスターのおきがえ</Text>
 
             <View
               style={[
                 styles.wallet,
                 {
-                  backgroundColor: "rgba(255, 255, 255, 0.78)",
+                  backgroundColor: "rgba(255, 255, 255, 0.9)",
                   borderColor: theme.colors.lavenderTrack,
                 },
-                theme.shadow,
+                styles.softShadow,
               ]}
             >
               <MaterialCommunityIcons
-                name="star-four-points"
-                size={22}
-                color={theme.colors.lavender}
+                color="#e8ad27"
+                name="star-four-points-outline"
+                size={20}
               />
-              <Text style={[styles.walletText, { color: theme.colors.lavender }]}>
-                {points} pt
-              </Text>
+              <Text style={styles.walletText}>{points} pt</Text>
             </View>
           </View>
 
-          <ScrollView
-            contentContainerStyle={styles.categoryRow}
-            horizontal
-            showsHorizontalScrollIndicator={false}
+          <View
+            style={[
+              styles.categoryBar,
+              {
+                backgroundColor: "rgba(255, 255, 255, 0.9)",
+                borderColor: theme.colors.lavenderTrack,
+              },
+              styles.softShadow,
+            ]}
           >
-            {categoryTabs.map((category) => {
+            {categoryTabs.map((category, index) => {
               const isActive = activeCategory === category.key;
 
               return (
@@ -118,19 +138,16 @@ export function ShopScreen({
                   key={category.key}
                   onPress={() => setActiveCategory(category.key)}
                   style={({ pressed }) => [
-                    styles.categoryChip,
-                    {
-                      backgroundColor: isActive
-                        ? theme.colors.lavenderPale
-                        : "rgba(255, 255, 255, 0.78)",
-                      borderColor: isActive
-                        ? theme.colors.lavender
-                        : theme.colors.lavenderTrack,
+                    styles.categoryTab,
+                    index > 0 && styles.categoryDivider,
+                    isActive && {
+                      backgroundColor: "rgba(205, 189, 255, 0.58)",
                     },
                     pressed && styles.buttonPressed,
                   ]}
                 >
                   <Text
+                    numberOfLines={1}
                     style={[
                       styles.categoryText,
                       isActive && { color: theme.colors.lavender },
@@ -141,9 +158,9 @@ export function ShopScreen({
                 </Pressable>
               );
             })}
-          </ScrollView>
+          </View>
 
-          <View style={styles.grid}>
+          <View style={[styles.grid, { gap: gridGap }]}>
             {visibleItems.map((item) => {
               const isOwned = ownedSet.has(item.id);
               const canBuy = points >= item.price;
@@ -154,19 +171,22 @@ export function ShopScreen({
                   style={[
                     styles.card,
                     {
-                      backgroundColor: "rgba(255, 255, 255, 0.82)",
+                      backgroundColor: "rgba(255, 255, 255, 0.94)",
                       borderColor: isOwned
                         ? theme.colors.lavenderSoft
                         : theme.colors.lavenderTrack,
                       width: cardWidth,
                     },
-                    theme.shadow,
+                    styles.cardShadow,
                   ]}
                 >
                   <View
                     style={[
                       styles.itemImageFrame,
-                      { backgroundColor: theme.colors.lavenderPale },
+                      {
+                        backgroundColor: "rgba(238, 231, 255, 0.7)",
+                        height: imageFrameHeight,
+                      },
                     ]}
                   >
                     <Image
@@ -176,49 +196,55 @@ export function ShopScreen({
                     />
                   </View>
 
-                  <Text numberOfLines={1} style={styles.itemName}>
+                  <Text numberOfLines={2} style={styles.itemName}>
                     {item.name}
                   </Text>
-                  <Text style={styles.itemSlot}>{slotLabels[item.slot]}</Text>
-                  <Text numberOfLines={2} style={styles.itemDescription}>
-                    {item.description}
-                  </Text>
 
-                  <View style={styles.cardFooter}>
-                    <Text style={[styles.priceText, { color: theme.colors.lavender }]}>
-                      {item.price} pt
-                    </Text>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityState={{
-                        disabled: isOwned || !canBuy,
-                      }}
-                      disabled={isOwned || !canBuy}
-                      onPress={() => onBuyItem(item)}
-                      style={({ pressed }) => [
-                        styles.buyButton,
+                  <View style={styles.priceRow}>
+                    <MaterialCommunityIcons
+                      color="#e8ad27"
+                      name="star-four-points-outline"
+                      size={15}
+                    />
+                    <Text style={styles.priceText}>{item.price} pt</Text>
+                  </View>
+
+                  <Pressable
+                    accessibilityLabel={`${item.name}を購入`}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: isOwned || !canBuy }}
+                    disabled={isOwned || !canBuy}
+                    onPress={() => onBuyItem(item)}
+                    style={({ pressed }) => [
+                      styles.buyButton,
+                      {
+                        backgroundColor:
+                          isOwned || !canBuy
+                            ? "rgba(237, 232, 248, 0.88)"
+                            : "rgba(255, 246, 249, 0.94)",
+                        borderColor:
+                          isOwned || !canBuy
+                            ? theme.colors.lavenderTrack
+                            : "#ff6f91",
+                      },
+                      pressed && !isOwned && canBuy && styles.buttonPressed,
+                    ]}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.buyButtonText,
                         {
-                          backgroundColor: isOwned
-                            ? theme.colors.lavenderPale
-                            : canBuy
+                          color:
+                            isOwned || !canBuy
                               ? theme.colors.lavender
-                              : theme.colors.lavenderTrack,
+                              : "#f35f83",
                         },
-                        pressed && !isOwned && canBuy && styles.buttonPressed,
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.buyButtonText,
-                          isOwned || !canBuy
-                            ? { color: theme.colors.lavender }
-                            : { color: theme.colors.white },
-                        ]}
-                      >
-                        {isOwned ? "もってる" : canBuy ? "買う" : "pt不足"}
-                      </Text>
-                    </Pressable>
-                  </View>
+                      {isOwned ? "もってる" : canBuy ? "買う" : "pt不足"}
+                    </Text>
+                  </Pressable>
                 </View>
               );
             })}
@@ -237,50 +263,68 @@ export function ShopScreen({
 }
 
 const styles = StyleSheet.create({
+  backgroundImage: {
+    height: "100%",
+    opacity: 0.78,
+    width: "100%",
+  },
+  buttonPressed: {
+    opacity: 0.76,
+    transform: [{ scale: 0.98 }],
+  },
   buyButton: {
     alignItems: "center",
     borderRadius: 999,
+    borderWidth: 1.5,
+    height: 31,
     justifyContent: "center",
-    minHeight: 34,
-    minWidth: 68,
-    paddingHorizontal: 12,
+    marginTop: 8,
+    paddingHorizontal: 4,
+    width: "100%",
   },
   buyButtonText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "900",
-  },
-  buttonPressed: {
-    opacity: 0.78,
-    transform: [{ scale: 0.98 }],
+    letterSpacing: 0,
   },
   card: {
-    borderRadius: 22,
-    borderWidth: 1,
-    marginBottom: 12,
-    padding: 12,
-  },
-  cardFooter: {
     alignItems: "center",
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 2,
+    minHeight: 194,
+    padding: 7,
+  },
+  cardShadow: {
+    elevation: 3,
+    shadowColor: "#7967c8",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+  },
+  categoryBar: {
+    borderRadius: 18,
+    borderWidth: 1,
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 12,
+    height: 48,
+    overflow: "hidden",
+    width: "100%",
   },
-  categoryChip: {
+  categoryDivider: {
+    borderLeftColor: "rgba(217, 208, 244, 0.8)",
+    borderLeftWidth: 1,
+  },
+  categoryTab: {
     alignItems: "center",
-    borderRadius: 999,
-    borderWidth: 1,
+    flex: 1,
     justifyContent: "center",
-    minHeight: 38,
-    paddingHorizontal: 16,
-  },
-  categoryRow: {
-    gap: 8,
-    paddingRight: 4,
+    minWidth: 0,
   },
   categoryText: {
-    color: monsterTheme.colors.ink,
-    fontSize: 14,
+    color: "#29236f",
+    fontSize: 13,
     fontWeight: "900",
+    letterSpacing: 0,
   },
   container: {
     flex: 1,
@@ -288,66 +332,92 @@ const styles = StyleSheet.create({
   },
   content: {
     alignSelf: "center",
-    gap: 16,
+    gap: 14,
   },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 12,
   },
-  itemDescription: {
-    color: monsterTheme.colors.muted,
-    fontSize: 12,
-    fontWeight: "700",
-    lineHeight: 17,
-    marginTop: 8,
-    minHeight: 34,
+  header: {
+    alignItems: "center",
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 72,
+    paddingHorizontal: 18,
+  },
+  headerShadow: {
+    elevation: 4,
+    shadowColor: "#7b67ca",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+  },
+  headerTitle: {
+    color: "#29236f",
+    fontSize: 30,
+    fontWeight: "900",
+    letterSpacing: 0,
   },
   itemImage: {
-    height: "86%",
-    width: "86%",
+    height: "72%",
+    width: "72%",
   },
   itemImageFrame: {
     alignItems: "center",
-    borderRadius: 18,
-    height: 116,
+    borderRadius: 11,
     justifyContent: "center",
     overflow: "hidden",
     width: "100%",
   },
   itemName: {
-    color: monsterTheme.colors.ink,
-    fontSize: 16,
-    fontWeight: "900",
-    marginTop: 12,
-  },
-  itemSlot: {
-    color: monsterTheme.colors.lavender,
+    color: "#29236f",
     fontSize: 12,
     fontWeight: "900",
-    marginTop: 4,
+    letterSpacing: 0,
+    lineHeight: 16,
+    marginTop: 8,
+    minHeight: 32,
+    textAlign: "center",
+    width: "100%",
+  },
+  priceRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 3,
+    height: 19,
+    justifyContent: "center",
+    marginTop: 2,
   },
   priceText: {
-    fontSize: 15,
+    color: "#29236f",
+    fontSize: 13,
     fontWeight: "900",
+    letterSpacing: 0,
   },
   scrollContent: {
     paddingBottom: 132,
-    paddingTop: 16,
+    paddingTop: 14,
+  },
+  softShadow: {
+    elevation: 3,
+    shadowColor: "#7967c8",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 9,
   },
   subtitle: {
-    color: monsterTheme.colors.muted,
-    fontSize: 14,
-    fontWeight: "800",
-    marginTop: 4,
-  },
-  title: {
-    fontSize: 32,
+    color: "#29236f",
+    flex: 1,
+    fontSize: 17,
     fontWeight: "900",
+    letterSpacing: 0,
   },
   titleRow: {
     alignItems: "center",
     flexDirection: "row",
+    gap: 10,
     justifyContent: "space-between",
   },
   wallet: {
@@ -355,12 +425,15 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     flexDirection: "row",
-    gap: 7,
-    minHeight: 44,
-    paddingHorizontal: 14,
+    gap: 6,
+    height: 42,
+    justifyContent: "center",
+    paddingHorizontal: 13,
   },
   walletText: {
+    color: "#29236f",
     fontSize: 16,
     fontWeight: "900",
+    letterSpacing: 0,
   },
 });
