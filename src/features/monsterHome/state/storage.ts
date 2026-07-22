@@ -1,17 +1,18 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { EmotionLogEntry } from "./emotionLog";
-import { MissionId } from "./missions";
+import { MAX_FEED_CHARGES, restoreFeedCharges } from "./feedCharges";
 import { initialMonsterState, MonsterState } from "./monsterState";
+import { MissionId } from "./missions";
 import { isProfileAvatarId } from "./profile";
 import {
-    getShopItemById,
-    isRoomItemPlacement,
-    isShopItemId,
-    isShopItemSlot,
-    RoomItemPlacement,
-    RoomItemPlacements,
-    ShopItemSlot,
+  getShopItemById,
+  isRoomItemPlacement,
+  isShopItemId,
+  isShopItemSlot,
+  RoomItemPlacement,
+  RoomItemPlacements,
+  ShopItemSlot,
 } from "./shopItems";
 
 const emotionLogsKey = "monster-app:emotion-logs";
@@ -56,6 +57,10 @@ export async function loadMonsterState() {
         .registeredEvolutionIds,
       evolutionId
     );
+    const eggDiscoveredAt = normalizeEggDiscoveredAt(
+      (parsedMonster as { eggDiscoveredAt?: unknown }).eggDiscoveredAt,
+      evolutionId
+    );
     const claimedMissionIds = normalizeMissionIds(
       (parsedMonster as { claimedMissionIds?: unknown }).claimedMissionIds
     );
@@ -75,13 +80,6 @@ export async function loadMonsterState() {
       typeof parsedMonster.onakaPercent === "number"
         ? Math.min(Math.max(parsedMonster.onakaPercent, 0), 100)
         : initialMonsterState.onakaPercent;
-    const bgmTrack = normalizeBgmTrack(
-      (parsedMonster as { bgmTrack?: unknown }).bgmTrack
-    );
-    const bgmVolume =
-      typeof (parsedMonster as { bgmVolume?: unknown }).bgmVolume === "number"
-        ? Math.min(Math.max((parsedMonster as { bgmVolume: number }).bgmVolume, 0), 1)
-        : initialMonsterState.bgmVolume;
     const points =
       typeof (parsedMonster as { points?: unknown }).points === "number"
         ? Math.max(0, Math.floor((parsedMonster as { points: number }).points))
@@ -108,14 +106,27 @@ export async function loadMonsterState() {
         ? (parsedMonster as { hasCompletedProfile: boolean })
             .hasCompletedProfile
         : Boolean(parsedMonster.name && userBirthday);
+    const feedChargeState = restoreFeedCharges({
+      feedChargeCount:
+        typeof (parsedMonster as { feedChargeCount?: unknown })
+          .feedChargeCount === "number"
+          ? (parsedMonster as { feedChargeCount: number }).feedChargeCount
+          : MAX_FEED_CHARGES,
+      feedChargeUpdatedAt:
+        typeof (parsedMonster as { feedChargeUpdatedAt?: unknown })
+          .feedChargeUpdatedAt === "number"
+          ? (parsedMonster as { feedChargeUpdatedAt: number })
+              .feedChargeUpdatedAt
+          : null,
+    });
 
     return {
       ...initialMonsterState,
-      bgmTrack,
-      bgmVolume,
       claimedMissionIds,
+      eggDiscoveredAt,
       equippedItemIds,
       evolutionId,
+      ...feedChargeState,
       hasCompletedProfile,
       name: parsedMonster.name ?? initialMonsterState.name,
       onakaPercent,
@@ -132,8 +143,17 @@ export async function loadMonsterState() {
   }
 }
 
-function normalizeBgmTrack(track: unknown): MonsterState["bgmTrack"] {
-  return track === "hidamari" ? "hidamari" : "nukumori";
+function normalizeEggDiscoveredAt(
+  value: unknown,
+  evolutionId: MonsterState["evolutionId"]
+) {
+  if (!evolutionId) return null;
+
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return Math.min(value, Date.now());
+  }
+
+  return Date.now();
 }
 
 function normalizeShopItemIds(ids: unknown) {
