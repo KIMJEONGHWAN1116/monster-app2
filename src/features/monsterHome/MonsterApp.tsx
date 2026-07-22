@@ -1,3 +1,4 @@
+import { Asset } from "expo-asset";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Platform, StyleSheet, View } from "react-native";
@@ -17,31 +18,41 @@ import { ProfileSetupScreen } from "./screens/ProfileSetupScreen";
 import { ShopScreen } from "./screens/ShopScreen";
 import { createEmotionLog, EmotionLogEntry } from "./state/emotionLog";
 import {
-  EvolutionChoice,
-  getDominantEvolution,
-  getEvolutionById,
+    EvolutionChoice,
+    getDominantEvolution,
+    getEvolutionById,
 } from "./state/evolution";
 import {
-  consumeFeedCharge,
-  getMillisecondsUntilNextFeedCharge,
-  restoreFeedCharges,
+    consumeFeedCharge,
+    getMillisecondsUntilNextFeedCharge,
+    restoreFeedCharges,
 } from "./state/feedCharges";
 import { getMissionStatuses, MissionStatus } from "./state/missions";
 import {
-  FeedEmotion,
-  initialMonsterState,
-  ONAKA_GAIN_PER_FEED,
+    FeedEmotion,
+    initialMonsterState,
+    ONAKA_GAIN_PER_FEED,
 } from "./state/monsterState";
 import { MainTabKey } from "./state/navigation";
 import { RoomItemPlacements, ShopItem } from "./state/shopItems";
 import {
-  loadEmotionLogs,
-  loadMonsterState,
-  resetStoredAppData,
-  saveEmotionLogs,
-  saveMonsterState,
+    loadEmotionLogs,
+    loadMonsterState,
+    resetStoredAppData,
+    saveEmotionLogs,
+    saveMonsterState,
 } from "./state/storage";
 import { monsterTheme } from "./styles/theme";
+
+const homeScreenBackgroundAsset = require("../../assets/images/home/home-screen-background.png");
+const shopRoomBackgroundAsset = require("../../assets/images/shop/shop-room-background.png");
+const stageBackgroundAsset = require("../../assets/images/home/monster-stage-background.png");
+
+const preloadAssets = [
+  homeScreenBackgroundAsset,
+  shopRoomBackgroundAsset,
+  stageBackgroundAsset,
+];
 
 type AppMode =
   | "launch"
@@ -129,6 +140,20 @@ export function MonsterApp() {
         setHasLoadedMonster(true);
       }
     );
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    Asset.loadAsync(preloadAssets)
+      .catch(() => undefined)
+      .finally(() => {
+        if (!isMounted) return;
+      });
 
     return () => {
       isMounted = false;
