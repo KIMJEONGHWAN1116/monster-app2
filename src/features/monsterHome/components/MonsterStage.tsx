@@ -26,6 +26,7 @@ const noBrowserPanStyle =
 type MonsterStageProps = {
   evolutionVisual?: EvolutionVisual | null;
   roomItemPlacements?: RoomItemPlacements;
+  transparentBackground?: boolean;
   width: number;
 };
 
@@ -34,6 +35,7 @@ type MonsterMotion = "" | "jump" | "squash";
 export function MonsterStage({
   evolutionVisual,
   roomItemPlacements = {},
+  transparentBackground = false,
   width,
 }: MonsterStageProps) {
   const [isBlinking, setIsBlinking] = useState(false);
@@ -350,7 +352,10 @@ export function MonsterStage({
           height: width * 0.92,
         },
       ]}
-      imageStyle={styles.stageImage}
+      imageStyle={[
+        styles.stageImage,
+        transparentBackground && styles.transparentStageImage,
+      ]}
     >
       <View
         style={[
@@ -512,6 +517,9 @@ const styles = StyleSheet.create({
   },
   stageImage: {
     borderRadius: 34,
+  },
+  transparentStageImage: {
+    opacity: 0,
   },
   monsterArea: {
     alignItems: "center",
