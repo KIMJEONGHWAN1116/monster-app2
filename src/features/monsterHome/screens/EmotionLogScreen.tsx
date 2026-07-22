@@ -1,7 +1,9 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
 import {
+  Image,
+  Pressable,
   SafeAreaView,
-  ScrollView,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -10,8 +12,7 @@ import {
 import Svg, { Circle } from "react-native-svg";
 
 import { BottomTabBar } from "../components/BottomTabBar";
-import { PageHeader } from "../components/PageHeader";
-import { SegmentedControl } from "../components/SegmentedControl";
+import { DressedMonsterPreview } from "../components/DressedMonsterPreview";
 import {
   countLogsByFeeling,
   EmotionLogEntry,
@@ -19,197 +20,254 @@ import {
   filterLogsByPeriod,
   formatLogTime,
   getPeriodRangeLabel,
-  groupLogsByDay,
 } from "../state/emotionLog";
+import { EvolutionChoice } from "../state/evolution";
 import { MainTabKey } from "../state/navigation";
+import { RoomItemPlacements } from "../state/shopItems";
 import { MonsterTheme, monsterTheme } from "../styles/theme";
+
+const emotionRecordsDesign = require("../../../assets/images/designs/emotion-records-design.png");
+
+const chartColors = ["#72dcc8", "#a8e9e0", "#f3a9d1", "#a7c5f8"];
+
+type AnalysisItem = {
+  count: number;
+  feeling: string;
+  ratio: number;
+};
 
 type EmotionLogScreenProps = {
   activeTab: MainTabKey;
+  currentEvolution: EvolutionChoice | null;
   logs: EmotionLogEntry[];
   onMogumoguPress: () => void;
   onTabPress: (tab: MainTabKey) => void;
+  roomItemPlacements: RoomItemPlacements;
   theme?: MonsterTheme;
 };
 
 export function EmotionLogScreen({
   activeTab,
+  currentEvolution,
   logs,
   onMogumoguPress,
   onTabPress,
+  roomItemPlacements,
   theme = monsterTheme,
 }: EmotionLogScreenProps) {
   const { width } = useWindowDimensions();
   const [period, setPeriod] = useState<EmotionPeriod>("week");
-  const contentWidth = Math.min(width - 24, 430);
-  const chartColors = [
-    theme.colors.lavender,
-    theme.colors.lavenderSoft,
-    "#c09df7",
-    "#b694f0",
-    "#bea5ef",
-  ];
+  const artboardWidth = Math.min(width, 430);
   const periodLogs = useMemo(
     () => filterLogsByPeriod(logs, period),
     [logs, period]
   );
-  const groupedLogs = groupLogsByDay(periodLogs);
-  const analysisItems = countLogsByFeeling(periodLogs).slice(0, 5);
+  const analysisItems = useMemo(
+    () => compactAnalysisItems(countLogsByFeeling(periodLogs)),
+    [periodLogs]
+  );
+  const recentLogs = useMemo(
+    () =>
+      [...periodLogs]
+        .sort(
+          (left, right) =>
+            new Date(right.createdAt).getTime() -
+            new Date(left.createdAt).getTime()
+        )
+        .slice(0, 3),
+    [periodLogs]
+  );
   const primaryFeeling = analysisItems[0]?.feeling ?? "モヤモヤ";
-  const periodLabel = period === "week" ? "今週" : period === "month" ? "今月" : "今年";
+  const periodLabel =
+    period === "week" ? "今週" : period === "month" ? "今月" : "今年";
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-    >
-      <PageHeader align="left" theme={theme} title="モヤモヤ記録" />
+    <SafeAreaView style={styles.container}>
+      <View style={[styles.artboard, { width: artboardWidth }]}>
+        <Image
+          resizeMode="stretch"
+          source={emotionRecordsDesign}
+          style={styles.designImage}
+        />
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={[styles.content, { width: contentWidth }]}>
-          <SegmentedControl
-            onChange={setPeriod}
-            options={[
-              { label: "週", value: "week" },
-              { label: "月", value: "month" },
-              { label: "年", value: "year" },
-            ]}
-            theme={theme}
-            value={period}
-          />
+        <PeriodControl onChange={setPeriod} value={period} />
 
-          <Text style={styles.rangeLabel}>{getPeriodRangeLabel(period)}</Text>
+        <View style={styles.rangeOverlay}>
+          <Text numberOfLines={1} style={styles.rangeText}>
+            {getPeriodRangeLabel(period)}
+          </Text>
+        </View>
 
-          <View style={[styles.summaryCard, theme.shadow]}>
-            <View style={styles.summaryHeader}>
-              <View>
-                <Text style={styles.summaryEyebrow}>{periodLabel}のバランス</Text>
-                <Text style={styles.summaryTitle}>
-                  {periodLogs.length === 0
-                    ? "まだ静かです"
-                    : `「${primaryFeeling}」多め`}
+        <View style={styles.summaryOverlay}>
+          <Text style={styles.summaryTitle}>{periodLabel}のモヤモヤバランス</Text>
+
+          <View style={styles.balanceRow}>
+            <DonutChart
+              colors={chartColors}
+              items={analysisItems}
+              size={artboardWidth * 0.33}
+            />
+
+            <View style={styles.legend}>
+              {analysisItems.length === 0 ? (
+                <Text style={styles.emptyLegend}>
+                  モヤモヤを食べてもらうと、ここに気持ちのバランスが出ます。
                 </Text>
-              </View>
-              <View
-                style={[
-                  styles.logCountBadge,
-                  { backgroundColor: theme.colors.lavenderPale },
-                ]}
-              >
-                <Text
-                  style={[styles.logCount, { color: theme.colors.lavender }]}
-                >
-                  {periodLogs.length}
-                </Text>
-                <Text
-                  style={[styles.logCountLabel, { color: theme.colors.lavender }]}
-                >
-                  件
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.balanceRow}>
-              <DonutChart
-                colors={chartColors}
-                items={analysisItems}
-                trackColor={theme.colors.lavenderTrack}
-              />
-
-              <View style={styles.legend}>
-                {analysisItems.length === 0 ? (
-                  <Text style={styles.emptyLegend}>
-                    モヤモヤを食べてもらうと、ここに比率が出ます。
-                  </Text>
-                ) : (
-                  analysisItems.map((item, index) => (
-                    <View key={item.feeling} style={styles.legendRow}>
-                      <View
-                        style={[
-                          styles.legendDot,
-                          { backgroundColor: chartColors[index % chartColors.length] },
-                        ]}
-                      />
-                      <Text style={styles.legendLabel}>{item.feeling}</Text>
-                      <Text style={styles.legendPercent}>
-                        {Math.round(item.ratio * 100)}%
-                      </Text>
-                    </View>
-                  ))
-                )}
-              </View>
-            </View>
-
-            <View
-              style={[
-                styles.insightBox,
-                { backgroundColor: theme.colors.lavenderPale },
-              ]}
-            >
-              <Text style={styles.insightTitle}>気づき</Text>
-              <Text style={styles.insightText}>
-                {periodLogs.length === 0
-                  ? "記録が増えると、モンスターが気持ちの傾向を一緒に見つけます。"
-                  : `${periodLabel}は「${primaryFeeling}」が少し目立っています。吐き出せたことを、まず大切にしましょう。`}
-              </Text>
+              ) : (
+                analysisItems.map((item, index) => (
+                  <View key={item.feeling} style={styles.legendRow}>
+                    <View
+                      style={[
+                        styles.legendDot,
+                        {
+                          backgroundColor:
+                            chartColors[index % chartColors.length],
+                        },
+                      ]}
+                    />
+                    <Text numberOfLines={1} style={styles.legendFeeling}>
+                      {item.feeling}
+                    </Text>
+                    <Text style={styles.legendPercent}>
+                      {Math.round(item.ratio * 100)}%
+                    </Text>
+                  </View>
+                ))
+              )}
             </View>
           </View>
 
-          <Text style={styles.sectionTitle}>{periodLabel}のログ</Text>
+          <View style={styles.insightCard}>
+            <View style={styles.insightHeading}>
+              <MaterialCommunityIcons
+                color="#9070e5"
+                name="lightbulb-on-outline"
+                size={25}
+              />
+              <Text style={styles.insightTitle}>気づき</Text>
+            </View>
+            <Text numberOfLines={2} style={styles.insightText}>
+              {periodLogs.length === 0
+                ? "まだ記録はありません。気持ちを吐き出せたら、一緒に振り返れます。"
+                : `${periodLabel}は「${primaryFeeling}」が少し多めでした。吐き出せたことを大切にしましょう。`}
+            </Text>
+          </View>
+        </View>
 
-          {groupedLogs.length === 0 ? (
-            <View style={[styles.emptyCard, theme.shadow]}>
-              <Text style={styles.emptyTitle}>まだ記録がありません</Text>
-              <Text style={styles.emptyText}>
-                この期間にモヤモヤを食べてもらうと、ここに残ります。
-              </Text>
+        <View style={styles.logsOverlay}>
+          <Text style={styles.logsTitle}>{periodLabel}のログ</Text>
+
+          {recentLogs.length === 0 ? (
+            <View style={styles.emptyLogCard}>
+              <MaterialCommunityIcons
+                color="#ae9add"
+                name="notebook-heart-outline"
+                size={30}
+              />
+              <View style={styles.emptyLogCopy}>
+                <Text style={styles.emptyLogTitle}>まだ記録がありません</Text>
+                <Text style={styles.emptyLogText}>
+                  もぐもぐすると、この期間の記録が残ります。
+                </Text>
+              </View>
             </View>
           ) : (
-            groupedLogs.map((group) => (
-              <View key={group.label} style={styles.group}>
-                <Text style={styles.groupTitle}>{group.label}</Text>
-
-                {group.logs.map((log) => (
-                  <View key={log.id} style={[styles.logCard, theme.shadow]}>
-                    <View style={styles.cardHeader}>
-                      <Text style={styles.feeling}>{log.feeling}</Text>
-                      <Text style={styles.time}>{formatLogTime(log.createdAt)}</Text>
-                    </View>
-                    <Text style={styles.note}>{log.note}</Text>
-                    <Text style={styles.monsterMessage}>
-                      モンスターが「{log.feeling}」を食べてくれました。
-                    </Text>
-                  </View>
-                ))}
+            recentLogs.map((log) => (
+              <View key={log.id} style={styles.logCard}>
+                <View style={styles.logMonsterFrame}>
+                  <DressedMonsterPreview
+                    evolutionVisual={currentEvolution?.visual}
+                    roomItemPlacements={roomItemPlacements}
+                    size={52}
+                  />
+                </View>
+                <View style={styles.logCopy}>
+                  <Text numberOfLines={1} style={styles.feeling}>
+                    {log.feeling}
+                  </Text>
+                  <Text numberOfLines={1} style={styles.note}>
+                    {log.note}
+                  </Text>
+                </View>
+                <Text style={styles.time}>{formatLogTime(log.createdAt)}</Text>
+                <MaterialCommunityIcons
+                  color="#2b277d"
+                  name="chevron-right"
+                  size={24}
+                />
               </View>
             ))
           )}
         </View>
-      </ScrollView>
 
-      <BottomTabBar
-        activeTab={activeTab}
-        onMogumoguPress={onMogumoguPress}
-        onTabPress={onTabPress}
-        theme={theme}
-      />
+        <View style={styles.bottomNavigation}>
+          <BottomTabBar
+            activeTab={activeTab}
+            onMogumoguPress={onMogumoguPress}
+            onTabPress={onTabPress}
+            theme={theme}
+          />
+        </View>
+      </View>
     </SafeAreaView>
+  );
+}
+
+function PeriodControl({
+  onChange,
+  value,
+}: {
+  onChange: (value: EmotionPeriod) => void;
+  value: EmotionPeriod;
+}) {
+  const options: Array<{ label: string; value: EmotionPeriod }> = [
+    { label: "週", value: "week" },
+    { label: "月", value: "month" },
+    { label: "年", value: "year" },
+  ];
+
+  return (
+    <View style={styles.periodControl}>
+      {options.map((option) => {
+        const isSelected = value === option.value;
+
+        return (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ selected: isSelected }}
+            key={option.value}
+            onPress={() => onChange(option.value)}
+            style={({ pressed }) => [
+              styles.periodOption,
+              isSelected && styles.periodOptionSelected,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text
+              style={[
+                styles.periodOptionText,
+                isSelected && styles.periodOptionTextSelected,
+              ]}
+            >
+              {option.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
   );
 }
 
 function DonutChart({
   colors,
   items,
-  trackColor,
+  size,
 }: {
   colors: string[];
-  items: ReturnType<typeof countLogsByFeeling>;
-  trackColor: string;
+  items: AnalysisItem[];
+  size: number;
 }) {
-  const size = 132;
-  const strokeWidth = 30;
+  const strokeWidth = size * 0.25;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   let offset = 0;
@@ -222,7 +280,7 @@ function DonutChart({
           cy={size / 2}
           fill="transparent"
           r={radius}
-          stroke={trackColor}
+          stroke="#ebe5fb"
           strokeWidth={strokeWidth}
         />
       </Svg>
@@ -258,181 +316,275 @@ function DonutChart({
   );
 }
 
+function compactAnalysisItems(items: AnalysisItem[]) {
+  if (items.length <= 4) return items;
+
+  const visibleItems = items.slice(0, 3);
+  const otherItems = items.slice(3);
+  const otherCount = otherItems.reduce((total, item) => total + item.count, 0);
+  const otherRatio = otherItems.reduce((total, item) => total + item.ratio, 0);
+
+  return [
+    ...visibleItems,
+    { count: otherCount, feeling: "その他", ratio: otherRatio },
+  ];
+}
+
 const styles = StyleSheet.create({
+  artboard: {
+    alignSelf: "center",
+    flex: 1,
+    overflow: "hidden",
+    position: "relative",
+  },
   balanceRow: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 18,
-    marginTop: 20,
+    gap: 17,
+    marginTop: 13,
   },
-  cardHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
+  bottomNavigation: {
+    bottom: 0,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    zIndex: 20,
   },
   container: {
+    backgroundColor: "#fbfaff",
     flex: 1,
+    overflow: "hidden",
   },
-  content: {
-    alignSelf: "center",
+  designImage: {
+    bottom: 0,
+    height: "100%",
+    left: 0,
+    position: "absolute",
+    right: 0,
+    top: 0,
+    width: "100%",
   },
   emptyLegend: {
-    color: monsterTheme.colors.muted,
-    fontSize: 14,
+    color: "#6d6a89",
+    fontSize: 13,
     fontWeight: "700",
-    lineHeight: 22,
+    lineHeight: 20,
   },
-  emptyCard: {
-    backgroundColor: monsterTheme.colors.white,
-    borderRadius: 18,
-    marginTop: 28,
-    padding: 24,
+  emptyLogCard: {
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderColor: "#e1daf8",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    minHeight: 74,
+    paddingHorizontal: 18,
+    shadowColor: "#7263a4",
+    shadowOffset: { height: 5, width: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 13,
   },
-  emptyText: {
-    color: monsterTheme.colors.muted,
-    fontSize: 15,
-    fontWeight: "600",
-    lineHeight: 23,
-    marginTop: 8,
+  emptyLogCopy: {
+    flex: 1,
+    marginLeft: 12,
   },
-  emptyTitle: {
-    color: monsterTheme.colors.ink,
-    fontSize: 20,
+  emptyLogText: {
+    color: "#74718c",
+    fontSize: 12,
+    marginTop: 3,
+  },
+  emptyLogTitle: {
+    color: "#27246d",
+    fontSize: 16,
     fontWeight: "900",
   },
   feeling: {
-    color: "#111111",
-    fontSize: 20,
+    color: "#25236e",
+    fontSize: 16,
     fontWeight: "900",
   },
-  group: {
-    marginTop: 22,
+  insightCard: {
+    backgroundColor: "#faf9ff",
+    borderColor: "#ddd4f7",
+    borderRadius: 15,
+    borderWidth: 1,
+    marginTop: 14,
+    paddingHorizontal: 15,
+    paddingVertical: 11,
   },
-  groupTitle: {
-    color: monsterTheme.colors.ink,
-    fontSize: 21,
-    fontWeight: "900",
-    marginBottom: 14,
-  },
-  insightBox: {
-    borderRadius: 18,
-    marginTop: 20,
-    padding: 16,
+  insightHeading: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
   },
   insightText: {
-    color: "#333333",
-    fontSize: 14,
-    fontWeight: "600",
-    lineHeight: 23,
-    marginTop: 8,
+    color: "#292673",
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 21,
+    marginLeft: 34,
+    marginTop: 4,
   },
   insightTitle: {
-    color: monsterTheme.colors.ink,
-    fontSize: 17,
+    color: "#292673",
+    fontSize: 16,
     fontWeight: "900",
   },
   legend: {
     flex: 1,
-    gap: 9,
+    gap: 8,
   },
   legendDot: {
+    borderColor: "rgba(255,255,255,0.9)",
     borderRadius: 999,
-    height: 17,
-    width: 17,
+    borderWidth: 1,
+    height: 13,
+    width: 13,
   },
-  legendLabel: {
-    color: "#222222",
+  legendFeeling: {
+    color: "#292673",
     flex: 1,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
   },
   legendPercent: {
-    color: "#333333",
+    color: "#292673",
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "900",
+    textAlign: "right",
+    width: 39,
   },
   legendRow: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 9,
+    gap: 8,
   },
   logCard: {
-    backgroundColor: monsterTheme.colors.white,
-    borderRadius: 16,
-    marginBottom: 12,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-  },
-  monsterMessage: {
-    color: "#353846",
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 22,
-    marginTop: 4,
-  },
-  note: {
-    color: "#353846",
-    fontSize: 14,
-    fontWeight: "600",
-    lineHeight: 22,
-    marginTop: 12,
-  },
-  logCount: {
-    fontSize: 25,
-    fontWeight: "900",
-    lineHeight: 27,
-  },
-  logCountBadge: {
     alignItems: "center",
-    borderRadius: 18,
-    height: 56,
+    backgroundColor: "#ffffff",
+    borderColor: "#ddd7f5",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    height: "25.4%",
+    marginBottom: "2.8%",
+    paddingHorizontal: 14,
+    shadowColor: "#7263a4",
+    shadowOffset: { height: 5, width: 0 },
+    shadowOpacity: 0.11,
+    shadowRadius: 13,
+  },
+  logCopy: {
+    flex: 1,
+    marginLeft: 9,
+    minWidth: 0,
+  },
+  logMonsterFrame: {
+    alignItems: "center",
+    height: 50,
     justifyContent: "center",
-    width: 56,
+    overflow: "hidden",
+    width: 50,
   },
-  logCountLabel: {
-    fontSize: 11,
-    fontWeight: "900",
+  logsOverlay: {
+    backgroundColor: "transparent",
+    bottom: "10.2%",
+    left: "4.9%",
+    paddingHorizontal: 1,
+    paddingTop: 4,
+    position: "absolute",
+    right: "4.9%",
+    top: "57.2%",
+    zIndex: 8,
   },
-  rangeLabel: {
-    color: "#333333",
+  logsTitle: {
+    color: "#25236e",
     fontSize: 19,
-    fontWeight: "800",
-    marginBottom: 18,
+    fontWeight: "900",
+    marginBottom: "4%",
     textAlign: "center",
   },
-  scrollContent: {
-    paddingBottom: 32,
-  },
-  sectionTitle: {
-    color: monsterTheme.colors.ink,
-    fontSize: 21,
-    fontWeight: "900",
-    marginTop: 28,
-  },
-  summaryCard: {
-    backgroundColor: monsterTheme.colors.white,
-    borderRadius: 24,
-    padding: 20,
-  },
-  summaryEyebrow: {
-    color: monsterTheme.colors.muted,
+  note: {
+    color: "#37347d",
     fontSize: 13,
-    fontWeight: "800",
+    marginTop: 5,
   },
-  summaryHeader: {
-    alignItems: "center",
+  periodControl: {
+    backgroundColor: "rgba(255,255,255,0.98)",
+    borderColor: "#d8d0f3",
+    borderRadius: 14,
+    borderWidth: 1,
     flexDirection: "row",
-    justifyContent: "space-between",
+    height: "4.25%",
+    left: "22.5%",
+    overflow: "hidden",
+    position: "absolute",
+    top: "11.25%",
+    width: "55%",
+    zIndex: 10,
+  },
+  periodOption: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+  },
+  periodOptionSelected: {
+    backgroundColor: "#b89aef",
+    borderColor: "#a381e8",
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  periodOptionText: {
+    color: "#292673",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  periodOptionTextSelected: {
+    color: "#ffffff",
+  },
+  pressed: {
+    opacity: 0.82,
+  },
+  rangeOverlay: {
+    alignItems: "center",
+    backgroundColor: "transparent",
+    height: "4.2%",
+    justifyContent: "center",
+    left: "26%",
+    position: "absolute",
+    top: "16.35%",
+    width: "48%",
+    zIndex: 9,
+  },
+  rangeText: {
+    color: "#292673",
+    fontSize: 19,
+    fontWeight: "900",
+  },
+  summaryOverlay: {
+    backgroundColor: "transparent",
+    borderColor: "transparent",
+    borderRadius: 20,
+    borderWidth: 1,
+    left: "10.2%",
+    paddingHorizontal: "6.5%",
+    paddingTop: "2.1%",
+    position: "absolute",
+    top: "21.3%",
+    width: "79.7%",
+    zIndex: 8,
   },
   summaryTitle: {
-    color: "#111111",
-    fontSize: 22,
+    color: "#292673",
+    fontSize: 18,
     fontWeight: "900",
-    marginTop: 4,
+    textAlign: "center",
   },
   time: {
-    color: "#5a5a62",
-    fontSize: 15,
-    fontWeight: "900",
+    color: "#7166ba",
+    fontSize: 12,
+    fontWeight: "800",
+    marginLeft: 5,
+    marginRight: 1,
   },
 });
