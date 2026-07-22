@@ -1,10 +1,10 @@
-import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from "expo-av";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { Alert, Platform, StyleSheet, View } from "react-native";
 
 import { LaunchScreen } from "./components/LaunchScreen";
 import { AutoEvolutionScreen } from "./screens/AutoEvolutionScreen";
+import { EggDiscoveryScreen } from "./screens/EggDiscoveryScreen";
 import { EmotionLogScreen } from "./screens/EmotionLogScreen";
 import { FeedEmotionScreen } from "./screens/FeedEmotionScreen";
 import { FeedReactionScreen } from "./screens/FeedReactionScreen";
@@ -17,24 +17,29 @@ import { ProfileSetupScreen } from "./screens/ProfileSetupScreen";
 import { ShopScreen } from "./screens/ShopScreen";
 import { createEmotionLog, EmotionLogEntry } from "./state/emotionLog";
 import {
-    EvolutionChoice,
-    getDominantEvolution,
-    getEvolutionById,
+  EvolutionChoice,
+  getDominantEvolution,
+  getEvolutionById,
 } from "./state/evolution";
+import {
+  consumeFeedCharge,
+  getMillisecondsUntilNextFeedCharge,
+  restoreFeedCharges,
+} from "./state/feedCharges";
 import { getMissionStatuses, MissionStatus } from "./state/missions";
 import {
-    FeedEmotion,
-    initialMonsterState,
-    type BgmTrackId,
+  FeedEmotion,
+  initialMonsterState,
+  ONAKA_GAIN_PER_FEED,
 } from "./state/monsterState";
 import { MainTabKey } from "./state/navigation";
 import { RoomItemPlacements, ShopItem } from "./state/shopItems";
 import {
-    loadEmotionLogs,
-    loadMonsterState,
-    resetStoredAppData,
-    saveEmotionLogs,
-    saveMonsterState,
+  loadEmotionLogs,
+  loadMonsterState,
+  resetStoredAppData,
+  saveEmotionLogs,
+  saveMonsterState,
 } from "./state/storage";
 import { monsterTheme } from "./styles/theme";
 
@@ -44,6 +49,7 @@ type AppMode =
   | "feedEmotion"
   | "feedReaction"
   | "autoEvolution"
+  | "eggDiscovery"
   | "dex"
   | "mission"
   | "profileSetup";
@@ -71,8 +77,6 @@ export function MonsterApp() {
     () => getMissionStatuses(emotionLogs, monster),
     [emotionLogs, monster]
   );
-  const bgmSoundRef = useRef<Audio.Sound | null>(null);
-  const currentBgmTrackRef = useRef<BgmTrackId | null>(null);
 
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;
@@ -142,94 +146,35 @@ export function MonsterApp() {
   }, [hasLoadedMonster, monster]);
 
   useEffect(() => {
-    let isCurrentEffect = true;
+    if (!hasLoadedMonster) return;
 
-    const applyBgm = async () => {
-      try {
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false,
-          interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
-          interruptionModeIOS: InterruptionModeIOS.DoNotMix,
-          playsInSilentModeIOS: true,
-          shouldDuckAndroid: true,
-          staysActiveInBackground: true,
-        });
-      } catch {
-        // Ignore audio mode errors on unsupported platforms.
-      }
+    const refreshCharges = () => {
+      setMonster((currentMonster) => {
+        const restored = restoreFeedCharges(currentMonster);
 
-      const nextTrack = monster.bgmTrack;
-      const nextVolume = Math.min(1, Math.max(0, monster.bgmVolume));
-
-      try {
-        const currentSound = bgmSoundRef.current;
-
-        if (currentSound) {
-          const status = await currentSound.getStatusAsync();
-
-          if (status.isLoaded) {
-            if (currentBgmTrackRef.current === nextTrack) {
-              await currentSound.setVolumeAsync(nextVolume);
-
-              if (!status.isPlaying) {
-                await currentSound.playAsync();
-              }
-
-              return;
-            }
-
-            await currentSound.stopAsync();
-            await currentSound.unloadAsync();
-            bgmSoundRef.current = null;
-            currentBgmTrackRef.current = null;
-          }
+        if (
+          restored.feedChargeCount === currentMonster.feedChargeCount &&
+          restored.feedChargeUpdatedAt === currentMonster.feedChargeUpdatedAt
+        ) {
+          return currentMonster;
         }
 
-        const nextSource =
-          nextTrack === "hidamari"
-            ? require("../../assets/sounds/hidamariBGM.mp3")
-            : require("../../assets/sounds/nukumoriBGM.mp3");
-
-        const nextSound = new Audio.Sound();
-        await nextSound.loadAsync(nextSource, { isLooping: true });
-        await nextSound.setVolumeAsync(nextVolume);
-        await nextSound.playAsync();
-
-        if (!isCurrentEffect) {
-          await nextSound.unloadAsync();
-          return;
-        }
-
-        bgmSoundRef.current = nextSound;
-        currentBgmTrackRef.current = nextTrack;
-      } catch (error) {
-        console.warn("BGM playback failed", error);
-      }
+        return { ...currentMonster, ...restored };
+      });
     };
 
-    void applyBgm();
+    refreshCharges();
+    const timer = setInterval(refreshCharges, 60 * 1000);
 
-    return () => {
-      isCurrentEffect = false;
-    };
-  }, [monster.bgmTrack, monster.bgmVolume]);
-
-  useEffect(() => {
-    return () => {
-      const sound = bgmSoundRef.current;
-
-      if (sound) {
-        void sound.stopAsync();
-        void sound.unloadAsync();
-      }
-    };
-  }, []);
+    return () => clearInterval(timer);
+  }, [hasLoadedMonster]);
 
   useEffect(() => {
     if (
       !hasLoadedLogs ||
       !hasLoadedMonster ||
       mode !== "main" ||
+      monster.evolutionId !== null ||
       monster.onakaPercent < 100 ||
       pendingEvolution
     ) {
@@ -243,6 +188,7 @@ export function MonsterApp() {
     hasLoadedLogs,
     hasLoadedMonster,
     mode,
+    monster.evolutionId,
     monster.onakaPercent,
     pendingEvolution,
   ]);
@@ -253,6 +199,30 @@ export function MonsterApp() {
   };
 
   const openFeedEmotion = () => {
+    const now = Date.now();
+    const restored = restoreFeedCharges(monster, now);
+
+    if (
+      restored.feedChargeCount !== monster.feedChargeCount ||
+      restored.feedChargeUpdatedAt !== monster.feedChargeUpdatedAt
+    ) {
+      setMonster((currentMonster) => ({
+        ...currentMonster,
+        ...restoreFeedCharges(currentMonster, now),
+      }));
+    }
+
+    if (restored.feedChargeCount <= 0) {
+      const waitTime = getMillisecondsUntilNextFeedCharge(restored, now);
+      Alert.alert(
+        "モヤモヤを待っているよ",
+        waitTime === null
+          ? "もう少し待ってから、また会いにきてね。"
+          : `次は${formatChargeWaitTime(waitTime)}後に食べられるよ。`
+      );
+      return;
+    }
+
     setMode("feedEmotion");
   };
 
@@ -265,24 +235,22 @@ export function MonsterApp() {
     setMode("profileSetup");
   };
 
-  const updateBgmTrack = (nextTrack: BgmTrackId) => {
-    setMonster((currentMonster) => ({
-      ...currentMonster,
-      bgmTrack: nextTrack,
-    }));
-  };
-
-  const updateBgmVolume = (nextVolume: number) => {
-    const clampedVolume = Math.min(1, Math.max(0, nextVolume));
-
-    setMonster((currentMonster) => ({
-      ...currentMonster,
-      bgmVolume: clampedVolume,
-    }));
-  };
-
   const openProfileSetup = () => {
     setMode("profileSetup");
+  };
+
+  const startTestEvolution = () => {
+    if (monster.evolutionId !== null) {
+      Alert.alert("進化済み", "このモンスターはすでに進化しています。");
+      return;
+    }
+
+    setMonster((currentMonster) => ({
+      ...currentMonster,
+      onakaPercent: 100,
+    }));
+    setPendingEvolution(getDominantEvolution(emotionLogs));
+    setMode("autoEvolution");
   };
 
   const saveProfile = ({
@@ -308,19 +276,42 @@ export function MonsterApp() {
   };
 
   const feedMonster = (emotion: FeedEmotion) => {
+    const now = Date.now();
+    const restoredCharges = restoreFeedCharges(monster, now);
+    const consumedCharges = consumeFeedCharge(restoredCharges, now);
+
+    if (!consumedCharges) {
+      Alert.alert(
+        "モヤモヤを待っているよ",
+        "次の回復まで少し待ってから、もう一度試してね。"
+      );
+      openMainTab("home");
+      return;
+    }
+
     const nextLog = createEmotionLog(emotion);
     const nextLogs = [nextLog, ...emotionLogs];
-    const gainedPercent = Math.max(0, Math.min(30, 100 - monster.onakaPercent));
-    const nextOnakaPercent = Math.min(monster.onakaPercent + 30, 100);
+    const gainedPercent = Math.max(
+      0,
+      Math.min(ONAKA_GAIN_PER_FEED, 100 - monster.onakaPercent)
+    );
+    const nextOnakaPercent = Math.min(
+      monster.onakaPercent + ONAKA_GAIN_PER_FEED,
+      100
+    );
 
     setLastFeedResult({ emotion, gainedPercent });
     setEmotionLogs(nextLogs);
     setMonster((currentMonster) => ({
       ...currentMonster,
-      onakaPercent: Math.min(currentMonster.onakaPercent + 30, 100),
+      ...consumedCharges,
+      onakaPercent: Math.min(
+        currentMonster.onakaPercent + ONAKA_GAIN_PER_FEED,
+        100
+      ),
     }));
 
-    if (nextOnakaPercent >= 100) {
+    if (nextOnakaPercent >= 100 && monster.evolutionId === null) {
       setPendingEvolution(getDominantEvolution(nextLogs));
       setMode("autoEvolution");
       return;
@@ -330,10 +321,13 @@ export function MonsterApp() {
   };
 
   const completeEvolution = (evolution: EvolutionChoice) => {
-    if (!evolution.canEvolve) return;
+    if (!evolution.canEvolve || monster.evolutionId !== null) return;
+
+    const eggDiscoveredAt = Date.now();
 
     setMonster((currentMonster) => ({
       ...currentMonster,
+      eggDiscoveredAt: currentMonster.eggDiscoveredAt ?? eggDiscoveredAt,
       evolutionId: evolution.id,
       name: evolution.name,
       onakaPercent: 0,
@@ -342,7 +336,7 @@ export function MonsterApp() {
       ),
     }));
     setPendingEvolution(null);
-    openMainTab("home");
+    setMode("eggDiscovery");
   };
 
   const claimMissionReward = (mission: MissionStatus) => {
@@ -425,6 +419,7 @@ export function MonsterApp() {
           currentEvolution={currentEvolution}
           onBack={() => openMainTab("home")}
           onSubmit={feedMonster}
+          roomItemPlacements={monster.roomItemPlacements}
           theme={monsterTheme}
         />
       ) : mode === "feedReaction" && lastFeedResult ? (
@@ -436,12 +431,18 @@ export function MonsterApp() {
           onBack={() => openMainTab("home")}
           onClose={() => openMainTab("home")}
           onGoLog={() => openMainTab("emotionLog")}
+          roomItemPlacements={monster.roomItemPlacements}
           theme={monsterTheme}
         />
       ) : mode === "autoEvolution" && pendingEvolution ? (
         <AutoEvolutionScreen
           evolution={pendingEvolution}
           onComplete={() => completeEvolution(pendingEvolution)}
+          theme={monsterTheme}
+        />
+      ) : mode === "eggDiscovery" ? (
+        <EggDiscoveryScreen
+          onContinue={() => openMainTab("home")}
           theme={monsterTheme}
         />
       ) : mode === "dex" ? (
@@ -471,14 +472,17 @@ export function MonsterApp() {
           onMissionPress={() => setMode("mission")}
           onMogumoguPress={openFeedEmotion}
           onTabPress={openMainTab}
+          onTestEvolutionPress={startTestEvolution}
           theme={monsterTheme}
         />
       ) : activeTab === "emotionLog" ? (
         <EmotionLogScreen
           activeTab={activeTab}
+          currentEvolution={currentEvolution}
           logs={emotionLogs}
           onMogumoguPress={openFeedEmotion}
           onTabPress={openMainTab}
+          roomItemPlacements={monster.roomItemPlacements}
           theme={monsterTheme}
         />
       ) : activeTab === "shop" ? (
@@ -494,13 +498,9 @@ export function MonsterApp() {
       ) : activeTab === "myPage" ? (
         <MyPageScreen
           activeTab={activeTab}
-          bgmTrack={monster.bgmTrack}
-          bgmVolume={monster.bgmVolume}
           currentEvolution={currentEvolution}
           logCount={emotionLogs.length}
           monster={monster}
-          onBgmTrackChange={updateBgmTrack}
-          onBgmVolumeChange={updateBgmVolume}
           onMogumoguPress={openFeedEmotion}
           onEditProfile={openProfileSetup}
           onResetData={resetAllData}
@@ -526,3 +526,13 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
 });
+
+function formatChargeWaitTime(milliseconds: number) {
+  const totalMinutes = Math.max(1, Math.ceil(milliseconds / (60 * 1000)));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours === 0) return `${minutes}分`;
+  if (minutes === 0) return `${hours}時間`;
+  return `${hours}時間${minutes}分`;
+}
