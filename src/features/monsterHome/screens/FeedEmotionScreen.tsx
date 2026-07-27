@@ -2,10 +2,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
 import {
   Image,
+  Keyboard,
   SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableWithoutFeedback,
   useWindowDimensions,
   View,
 } from "react-native";
@@ -64,14 +66,16 @@ export function FeedEmotionScreen({
   );
 
   const submitEmotion = () => {
+    Keyboard.dismiss();
     if (canSubmit) onSubmit(selectedEmotion);
   };
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-    >
-      <View style={[styles.artboard, { width: artboardWidth }]}>
+    <TouchableWithoutFeedback accessible={false} onPress={Keyboard.dismiss}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: theme.colors.background }]}
+      >
+        <View style={[styles.artboard, { width: artboardWidth }]}>
         <Image
           resizeMode="stretch"
           source={feedEmotionDesign}
@@ -83,7 +87,10 @@ export function FeedEmotionScreen({
           accessibilityLabel="戻る"
           accessibilityRole="button"
           hitSlop={8}
-          onPress={onBack}
+          onPress={() => {
+            Keyboard.dismiss();
+            onBack();
+          }}
           style={({ pressed }) => [
             styles.backHotspot,
             pressed && styles.hotspotPressed,
@@ -106,8 +113,11 @@ export function FeedEmotionScreen({
             accessibilityLabel="気持ちを入力"
             maxLength={200}
             multiline
+            blurOnSubmit
             onChangeText={setNote}
+            onSubmitEditing={Keyboard.dismiss}
             placeholder=""
+            returnKeyType="done"
             style={styles.textInput}
             textAlignVertical="top"
             value={note}
@@ -125,7 +135,10 @@ export function FeedEmotionScreen({
               accessibilityRole="button"
               accessibilityState={{ selected: isSelected }}
               key={feeling}
-              onPress={() => setSelectedFeeling(isSelected ? "" : feeling)}
+              onPress={() => {
+                Keyboard.dismiss();
+                setSelectedFeeling(isSelected ? "" : feeling);
+              }}
               style={({ pressed }) => [
                 styles.emotionHotspot,
                 emotionSlots[index],
@@ -165,8 +178,9 @@ export function FeedEmotionScreen({
         >
           {!canSubmit && <Text style={styles.disabledButtonText}>食べてもらう</Text>}
         </Pressable>
-      </View>
-    </SafeAreaView>
+        </View>
+      </SafeAreaView>
+    </TouchableWithoutFeedback>
   );
 }
 
