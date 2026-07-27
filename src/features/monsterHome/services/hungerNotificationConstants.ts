@@ -1,0 +1,1 @@
+export const HUNGER_NOTIFICATION_DELAY_MS = 5 * 60 * 60 * 1000;

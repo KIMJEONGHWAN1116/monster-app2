@@ -20,6 +20,11 @@ import { MonsterDexScreen } from "./screens/MonsterDexScreen";
 import { MyPageScreen } from "./screens/MyPageScreen";
 import { ProfileSetupScreen } from "./screens/ProfileSetupScreen";
 import { ShopScreen } from "./screens/ShopScreen";
+import {
+  cancelHungerReminder,
+  configureHungerNotifications,
+  replaceHungerReminder,
+} from "./services/hungerNotifications";
 import { createEmotionLog, EmotionLogEntry } from "./state/emotionLog";
 import {
   EvolutionChoice,
@@ -44,6 +49,7 @@ import {
   ONAKA_GAIN_PER_FEED,
 } from "./state/monsterState";
 import { MainTabKey } from "./state/navigation";
+import { addOnaka, restoreOnaka } from "./state/onaka";
 import { RoomItemPlacements, ShopItem } from "./state/shopItems";
 import {
   loadEmotionLogs,
@@ -85,6 +91,8 @@ type AppMode =
 type FeedResult = {
   emotion: FeedEmotion;
   gainedPercent: number;
+  onakaAfter: number;
+  onakaBefore: number;
 };
 
 export function MonsterApp() {
@@ -96,6 +104,8 @@ export function MonsterApp() {
   const [hasLoadedMonster, setHasLoadedMonster] = useState(false);
   const [monster, setMonster] = useState(initialMonsterState);
   const [lastFeedResult, setLastFeedResult] = useState<FeedResult | null>(null);
+  const [isReopeningHatchedMonster, setIsReopeningHatchedMonster] =
+    useState(false);
   const [pendingEvolution, setPendingEvolution] =
     useState<EvolutionChoice | null>(null);
   const currentEvolution = useMemo(
@@ -120,6 +130,11 @@ export function MonsterApp() {
   const bgmTrackRef = useRef<BgmTrackId | null>(null);
   const bgmSyncGenerationRef = useRef(0);
   const bgmSyncQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const hungerNotificationIdRef = useRef<string | null>(null);
+  const notificationsEnabledRef = useRef(
+    initialMonsterState.notificationsEnabled
+  );
+  const hungerNotificationQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;
@@ -180,7 +195,51 @@ export function MonsterApp() {
 
   useEffect(() => {
     void Asset.loadAsync(preloadAssets).catch(() => undefined);
+    void configureHungerNotifications().catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    hungerNotificationIdRef.current = monster.hungerNotificationId;
+    notificationsEnabledRef.current = monster.notificationsEnabled;
+  }, [monster.hungerNotificationId, monster.notificationsEnabled]);
+
+  const queueHungerReminderReplacement = (monsterName: string) => {
+    hungerNotificationQueueRef.current = hungerNotificationQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const nextIdentifier = await replaceHungerReminder({
+          existingIdentifier: hungerNotificationIdRef.current,
+          monsterName,
+        });
+
+        if (!notificationsEnabledRef.current) {
+          await cancelHungerReminder(nextIdentifier);
+          hungerNotificationIdRef.current = null;
+          return;
+        }
+
+        hungerNotificationIdRef.current = nextIdentifier;
+        setMonster((currentMonster) => ({
+          ...currentMonster,
+          hungerNotificationId: nextIdentifier,
+        }));
+      });
+  };
+
+  const queueHungerReminderCancellation = () => {
+    hungerNotificationQueueRef.current = hungerNotificationQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        const identifier = hungerNotificationIdRef.current;
+        hungerNotificationIdRef.current = null;
+        await cancelHungerReminder(identifier);
+        setMonster((currentMonster) =>
+          currentMonster.hungerNotificationId === null
+            ? currentMonster
+            : { ...currentMonster, hungerNotificationId: null }
+        );
+      });
+  };
 
   useEffect(() => {
     if (!hasLoadedLogs) return;
@@ -295,23 +354,28 @@ export function MonsterApp() {
   useEffect(() => {
     if (!hasLoadedMonster) return;
 
-    const refreshCharges = () => {
+    const refreshTimedState = () => {
       setMonster((currentMonster) => {
-        const restored = restoreFeedCharges(currentMonster);
+        const now = Date.now();
+        const restoredCharges = restoreFeedCharges(currentMonster, now);
+        const restoredOnaka = restoreOnaka(currentMonster, now);
 
         if (
-          restored.feedChargeCount === currentMonster.feedChargeCount &&
-          restored.feedChargeUpdatedAt === currentMonster.feedChargeUpdatedAt
+          restoredCharges.feedChargeCount === currentMonster.feedChargeCount &&
+          restoredCharges.feedChargeUpdatedAt ===
+            currentMonster.feedChargeUpdatedAt &&
+          restoredOnaka.onakaPercent === currentMonster.onakaPercent &&
+          restoredOnaka.onakaUpdatedAt === currentMonster.onakaUpdatedAt
         ) {
           return currentMonster;
         }
 
-        return { ...currentMonster, ...restored };
+        return { ...currentMonster, ...restoredCharges, ...restoredOnaka };
       });
     };
 
-    refreshCharges();
-    const timer = setInterval(refreshCharges, 60 * 1000);
+    refreshTimedState();
+    const timer = setInterval(refreshTimedState, 60 * 1000);
 
     return () => clearInterval(timer);
   }, [hasLoadedMonster]);
@@ -405,6 +469,21 @@ export function MonsterApp() {
     }));
   };
 
+  const updateNotificationsEnabled = (notificationsEnabled: boolean) => {
+    notificationsEnabledRef.current = notificationsEnabled;
+    setMonster((currentMonster) => ({
+      ...currentMonster,
+      notificationsEnabled,
+      hungerNotificationId: notificationsEnabled
+        ? currentMonster.hungerNotificationId
+        : null,
+    }));
+
+    if (!notificationsEnabled) {
+      queueHungerReminderCancellation();
+    }
+  };
+
   const openProfileSetup = () => {
     setMode("profileSetup");
   };
@@ -418,6 +497,7 @@ export function MonsterApp() {
     setMonster((currentMonster) => ({
       ...currentMonster,
       onakaPercent: 100,
+      onakaUpdatedAt: Date.now(),
     }));
     setPendingEvolution(getDominantEvolution(growthEmotionLogs));
     setMode("autoEvolution");
@@ -432,6 +512,7 @@ export function MonsterApp() {
       return;
     }
 
+    setIsReopeningHatchedMonster(monster.eggHatchRevealedAt !== null);
     setMonster((currentMonster) => ({
       ...currentMonster,
       eggHatchRevealedAt:
@@ -443,6 +524,7 @@ export function MonsterApp() {
   const startTestEggHatch = () => {
     const now = Date.now();
 
+    setIsReopeningHatchedMonster(false);
     setMonster((currentMonster) => ({
       ...currentMonster,
       eggDiscoveredAt: now - EGG_HATCH_DURATION_MS,
@@ -462,9 +544,13 @@ export function MonsterApp() {
       feedChargeCount: MAX_FEED_CHARGES,
       feedChargeUpdatedAt: null,
       growthStartedAt: now,
+      hungerNotificationId: null,
       name: monsterName,
       onakaPercent: 0,
+      onakaUpdatedAt: null,
     }));
+    queueHungerReminderCancellation();
+    setIsReopeningHatchedMonster(false);
     setLastFeedResult(null);
     setPendingEvolution(null);
     openMainTab("home");
@@ -496,6 +582,7 @@ export function MonsterApp() {
     const now = Date.now();
     const restoredCharges = restoreFeedCharges(monster, now);
     const consumedCharges = consumeFeedCharge(restoredCharges, now);
+    const restoredOnaka = restoreOnaka(monster, now);
 
     if (!consumedCharges) {
       Alert.alert(
@@ -509,27 +596,27 @@ export function MonsterApp() {
     const nextLog = createEmotionLog(emotion);
     const nextLogs = [nextLog, ...emotionLogs];
     const nextGrowthLogs = [nextLog, ...growthEmotionLogs];
-    const gainedPercent = Math.max(
-      0,
-      Math.min(ONAKA_GAIN_PER_FEED, 100 - monster.onakaPercent)
-    );
-    const nextOnakaPercent = Math.min(
-      monster.onakaPercent + ONAKA_GAIN_PER_FEED,
-      100
-    );
+    const nextOnaka = addOnaka(restoredOnaka, ONAKA_GAIN_PER_FEED, now);
+    const gainedPercent = nextOnaka.onakaPercent - restoredOnaka.onakaPercent;
 
-    setLastFeedResult({ emotion, gainedPercent });
+    setLastFeedResult({
+      emotion,
+      gainedPercent,
+      onakaAfter: nextOnaka.onakaPercent,
+      onakaBefore: restoredOnaka.onakaPercent,
+    });
     setEmotionLogs(nextLogs);
     setMonster((currentMonster) => ({
       ...currentMonster,
       ...consumedCharges,
-      onakaPercent: Math.min(
-        currentMonster.onakaPercent + ONAKA_GAIN_PER_FEED,
-        100
-      ),
+      ...addOnaka(currentMonster, ONAKA_GAIN_PER_FEED, now),
     }));
 
-    if (nextOnakaPercent >= 100 && monster.evolutionId === null) {
+    if (monster.notificationsEnabled) {
+      queueHungerReminderReplacement(monster.name);
+    }
+
+    if (nextOnaka.onakaPercent >= 100 && monster.evolutionId === null) {
       setPendingEvolution(getDominantEvolution(nextGrowthLogs));
       setMode("autoEvolution");
       return;
@@ -548,14 +635,27 @@ export function MonsterApp() {
       eggDiscoveredAt: currentMonster.eggDiscoveredAt ?? eggDiscoveredAt,
       eggHatchRevealedAt: null,
       evolutionId: evolution.id,
-      name: evolution.name,
+      hungerNotificationId: null,
       onakaPercent: 0,
+      onakaUpdatedAt: null,
       registeredEvolutionIds: Array.from(
         new Set([...currentMonster.registeredEvolutionIds, evolution.id])
       ),
     }));
+    queueHungerReminderCancellation();
+    setIsReopeningHatchedMonster(false);
     setPendingEvolution(null);
     setMode("eggDiscovery");
+  };
+
+  const switchToRegisteredEvolution = (evolution: EvolutionChoice) => {
+    if (!monster.registeredEvolutionIds.includes(evolution.id)) return;
+
+    setMonster((currentMonster) => ({
+      ...currentMonster,
+      evolutionId: evolution.id,
+    }));
+    openMainTab("home");
   };
 
   const claimMissionReward = (mission: MissionStatus) => {
@@ -564,7 +664,7 @@ export function MonsterApp() {
     setMonster((currentMonster) => ({
       ...currentMonster,
       claimedMissionIds: Array.from(
-        new Set([...currentMonster.claimedMissionIds, mission.id])
+        new Set([...currentMonster.claimedMissionIds, mission.claimKey])
       ),
       points: currentMonster.points + mission.reward,
     }));
@@ -604,9 +704,12 @@ export function MonsterApp() {
   };
 
   const resetAllData = () => {
+    notificationsEnabledRef.current = initialMonsterState.notificationsEnabled;
+    queueHungerReminderCancellation();
     setEmotionLogs([]);
     setMonster({ ...initialMonsterState });
     setLastFeedResult(null);
+    setIsReopeningHatchedMonster(false);
     setPendingEvolution(null);
     setActiveTab("home");
     setMode("launch");
@@ -650,6 +753,8 @@ export function MonsterApp() {
           currentEvolution={currentEvolution}
           emotion={lastFeedResult.emotion}
           gainedPercent={lastFeedResult.gainedPercent}
+          onakaAfter={lastFeedResult.onakaAfter}
+          onakaBefore={lastFeedResult.onakaBefore}
           onAgain={openFeedEmotion}
           onBack={() => openMainTab("home")}
           onGoLog={() => openMainTab("emotionLog")}
@@ -671,13 +776,14 @@ export function MonsterApp() {
         <EggHatchScreen
           onKeepCurrent={() => openMainTab("home")}
           onReplace={replaceWithHatchedMonster}
+          skipHatchAnimation={isReopeningHatchedMonster}
           soundVolume={monster.seVolume}
           theme={monsterTheme}
         />
       ) : mode === "dex" ? (
         <MonsterDexScreen
           onBack={() => openMainTab("home")}
-          onSelectEvolution={completeEvolution}
+          onSelectEvolution={switchToRegisteredEvolution}
           registeredEvolutionIds={monster.registeredEvolutionIds}
           theme={monsterTheme}
         />
@@ -736,6 +842,7 @@ export function MonsterApp() {
           onBgmVolumeChange={updateBgmVolume}
           onMogumoguPress={openFeedEmotion}
           onEditProfile={openProfileSetup}
+          onNotificationChange={updateNotificationsEnabled}
           onResetData={resetAllData}
           onSaveRoom={saveRoomItemPlacements}
           onSeVolumeChange={updateSeVolume}

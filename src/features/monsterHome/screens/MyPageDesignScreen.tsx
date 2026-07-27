@@ -66,6 +66,7 @@ type MyPageScreenProps = {
   onBgmVolumeChange: (volume: number) => void;
   onMogumoguPress: () => void;
   onEditProfile: () => void;
+  onNotificationChange: (value: boolean) => void;
   onResetData: () => void;
   onSaveRoom: (placements: RoomItemPlacements) => void;
   onSeVolumeChange: (volume: number) => void;
@@ -85,6 +86,7 @@ export function MyPageScreen({
   onBgmVolumeChange,
   onMogumoguPress,
   onEditProfile,
+  onNotificationChange,
   onResetData,
   onSaveRoom,
   onSeVolumeChange,
@@ -95,7 +97,6 @@ export function MyPageScreen({
   const { width } = useWindowDimensions();
   const artboardWidth = Math.min(width, 430);
   const roomStageSize = Math.min(artboardWidth * 0.61, 270);
-  const [brightness, setBrightness] = useState(0.75);
   const [draftPlacements, setDraftPlacements] = useState<RoomItemPlacements>(
     monster.roomItemPlacements
   );
@@ -105,10 +106,7 @@ export function MyPageScreen({
   const [isRoomOpen, setIsRoomOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [monsterVoiceEnabled, setMonsterVoiceEnabled] = useState(true);
-  const [notificationEnabled, setNotificationEnabled] = useState(true);
   const [roomFilter, setRoomFilter] = useState<RoomFilter>("all");
-  const [talkFrequency, setTalkFrequency] =
-    useState<"low" | "normal" | "high" | "loud">("normal");
   const ownedSet = useMemo(
     () => new Set(monster.ownedItemIds),
     [monster.ownedItemIds]
@@ -121,28 +119,10 @@ export function MyPageScreen({
     () => !areRoomPlacementsEqual(draftPlacements, monster.roomItemPlacements),
     [draftPlacements, monster.roomItemPlacements]
   );
-  const talkFrequencyOptions = [
-    { label: "低", value: "low" as const },
-    { label: "標準", value: "normal" as const },
-    { label: "高", value: "high" as const },
-    { label: "うるさい", value: "loud" as const },
-  ];
-  const currentTalkFrequencyIndex = talkFrequencyOptions.findIndex(
-    (option) => option.value === talkFrequency
-  );
-  const currentTalkFrequency =
-    talkFrequencyOptions[currentTalkFrequencyIndex] ?? talkFrequencyOptions[0];
 
   useEffect(() => {
     setDraftPlacements(monster.roomItemPlacements);
   }, [monster.roomItemPlacements]);
-
-  const changeTalkFrequency = (direction: -1 | 1) => {
-    const nextIndex =
-      (currentTalkFrequencyIndex + direction + talkFrequencyOptions.length) %
-      talkFrequencyOptions.length;
-    setTalkFrequency(talkFrequencyOptions[nextIndex].value);
-  };
 
   const resetData = () => {
     if (isResetting) return;
@@ -311,16 +291,9 @@ export function MyPageScreen({
             source={myPageDesign}
             style={styles.designImage}
           />
-
-          <Pressable
-            accessibilityLabel="設定"
-            accessibilityRole="button"
-            onPress={() => setIsSettingsOpen(true)}
-            style={({ pressed }) => [
-              styles.settingsHotspot,
-              pressed && styles.buttonPressed,
-            ]}
-          />
+          <View pointerEvents="none" style={styles.pageHeaderOverlay}>
+            <Text style={styles.pageHeaderTitle}>マイページ</Text>
+          </View>
 
           <View style={styles.profilePhoto}>
             {monster.profileImageUri ? (
@@ -386,33 +359,51 @@ export function MyPageScreen({
               pressed && styles.buttonPressed,
             ]}
           />
-          <Pressable
-            accessibilityLabel="プロフィール編集"
-            accessibilityRole="button"
-            onPress={onEditProfile}
-            style={({ pressed }) => [
-              styles.profileRowHotspot,
-              pressed && styles.rowPressed,
-            ]}
-          />
-          <Pressable
-            accessibilityLabel="通知・サウンド"
-            accessibilityRole="button"
-            onPress={() => setIsSettingsOpen(true)}
-            style={({ pressed }) => [
-              styles.soundRowHotspot,
-              pressed && styles.rowPressed,
-            ]}
-          />
-          <Pressable
-            accessibilityLabel="データ設定"
-            accessibilityRole="button"
-            onPress={() => setIsSettingsOpen(true)}
-            style={({ pressed }) => [
-              styles.dataRowHotspot,
-              pressed && styles.rowPressed,
-            ]}
-          />
+          <View style={styles.accountActionsPanel}>
+            <Pressable
+              accessibilityLabel="プロフィール編集"
+              accessibilityRole="button"
+              onPress={onEditProfile}
+              style={({ pressed }) => [
+                styles.accountActionRow,
+                styles.accountActionDivider,
+                pressed && styles.rowPressed,
+              ]}
+            >
+              <MaterialCommunityIcons
+                color={theme.colors.lavender}
+                name="account-outline"
+                size={27}
+              />
+              <Text style={styles.accountActionText}>プロフィール編集</Text>
+              <MaterialCommunityIcons
+                color={theme.colors.lavender}
+                name="chevron-right"
+                size={25}
+              />
+            </Pressable>
+            <Pressable
+              accessibilityLabel="設定"
+              accessibilityRole="button"
+              onPress={() => setIsSettingsOpen(true)}
+              style={({ pressed }) => [
+                styles.accountActionRow,
+                pressed && styles.rowPressed,
+              ]}
+            >
+              <MaterialCommunityIcons
+                color={theme.colors.lavender}
+                name="cog-outline"
+                size={28}
+              />
+              <Text style={styles.accountActionText}>設定</Text>
+              <MaterialCommunityIcons
+                color={theme.colors.lavender}
+                name="chevron-right"
+                size={25}
+              />
+            </Pressable>
+          </View>
 
           <View style={styles.bottomNavigation}>
             <BottomTabBar
@@ -428,16 +419,13 @@ export function MyPageScreen({
       <SettingsModal
         bgmTrack={bgmTrack}
         bgmVolume={bgmVolume}
-        brightness={brightness}
-        currentTalkFrequency={currentTalkFrequency.label}
         isConfirmingReset={isConfirmingReset}
         isOpen={isSettingsOpen}
         isResetting={isResetting}
         monsterVoiceEnabled={monsterVoiceEnabled}
-        notificationEnabled={notificationEnabled}
+        notificationEnabled={monster.notificationsEnabled}
         onChangeBgm={onBgmVolumeChange}
         onChangeBgmTrack={onBgmTrackChange}
-        onChangeBrightness={setBrightness}
         onChangeSe={onSeVolumeChange}
         onChangeVoice={setMonsterVoiceEnabled}
         onClose={() => {
@@ -445,8 +433,7 @@ export function MyPageScreen({
           setIsSettingsOpen(false);
         }}
         onConfirmReset={resetData}
-        onFrequencyChange={changeTalkFrequency}
-        onNotificationChange={setNotificationEnabled}
+        onNotificationChange={onNotificationChange}
         onRequestReset={() => setIsConfirmingReset(true)}
         onResetBack={() => setIsConfirmingReset(false)}
         seVolume={seVolume}
@@ -518,8 +505,6 @@ function StatOverlay({
 function SettingsModal({
   bgmTrack,
   bgmVolume,
-  brightness,
-  currentTalkFrequency,
   isConfirmingReset,
   isOpen,
   isResetting,
@@ -527,12 +512,10 @@ function SettingsModal({
   notificationEnabled,
   onChangeBgm,
   onChangeBgmTrack,
-  onChangeBrightness,
   onChangeSe,
   onChangeVoice,
   onClose,
   onConfirmReset,
-  onFrequencyChange,
   onNotificationChange,
   onRequestReset,
   onResetBack,
@@ -541,8 +524,6 @@ function SettingsModal({
 }: {
   bgmTrack: BgmTrackId;
   bgmVolume: number;
-  brightness: number;
-  currentTalkFrequency: string;
   isConfirmingReset: boolean;
   isOpen: boolean;
   isResetting: boolean;
@@ -550,12 +531,10 @@ function SettingsModal({
   notificationEnabled: boolean;
   onChangeBgm: (value: number) => void;
   onChangeBgmTrack: (track: BgmTrackId) => void;
-  onChangeBrightness: (value: number) => void;
   onChangeSe: (value: number) => void;
   onChangeVoice: (value: boolean) => void;
   onClose: () => void;
   onConfirmReset: () => void;
-  onFrequencyChange: (direction: -1 | 1) => void;
   onNotificationChange: (value: boolean) => void;
   onRequestReset: () => void;
   onResetBack: () => void;
@@ -601,7 +580,14 @@ function SettingsModal({
                   onPress={onResetBack}
                   style={[styles.modalButton, styles.cancelButton]}
                 >
-                  <Text style={styles.cancelButtonText}>キャンセル</Text>
+                  <Text
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}
+                    numberOfLines={1}
+                    style={styles.cancelButtonText}
+                  >
+                    キャンセル
+                  </Text>
                 </Pressable>
                 <Pressable
                   accessibilityLabel="リセットする"
@@ -610,7 +596,12 @@ function SettingsModal({
                   onPress={onConfirmReset}
                   style={[styles.modalButton, styles.resetButton]}
                 >
-                  <Text style={styles.resetButtonText}>
+                  <Text
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.72}
+                    numberOfLines={1}
+                    style={styles.resetButtonText}
+                  >
                     {isResetting ? "リセット中..." : "リセットする"}
                   </Text>
                 </Pressable>
@@ -674,75 +665,7 @@ function SettingsModal({
                   onValueChange={onChangeVoice}
                   value={monsterVoiceEnabled}
                 />
-                <View style={styles.settingRow}>
-                  <Text style={styles.settingLabel}>話す頻度</Text>
-                  <View style={styles.frequencyGroup}>
-                    <Pressable
-                      accessibilityLabel="話す頻度を下げる"
-                      accessibilityRole="button"
-                      onPress={() => onFrequencyChange(-1)}
-                      style={styles.settingIconButton}
-                    >
-                      <MaterialCommunityIcons
-                        color={theme.colors.lavender}
-                        name="chevron-left"
-                        size={24}
-                      />
-                    </Pressable>
-                    <Text style={styles.frequencyValue}>
-                      {currentTalkFrequency}
-                    </Text>
-                    <Pressable
-                      accessibilityLabel="話す頻度を上げる"
-                      accessibilityRole="button"
-                      onPress={() => onFrequencyChange(1)}
-                      style={styles.settingIconButton}
-                    >
-                      <MaterialCommunityIcons
-                        color={theme.colors.lavender}
-                        name="chevron-right"
-                        size={24}
-                      />
-                    </Pressable>
-                  </View>
-                </View>
                 <SettingsSectionHeader icon="cellphone-cog" label="アプリ" />
-                <View style={styles.settingRow}>
-                  <Text style={styles.settingLabel}>画面の明るさ</Text>
-                  <View style={styles.brightnessGroup}>
-                    <Pressable
-                      accessibilityLabel="画面を暗くする"
-                      accessibilityRole="button"
-                      onPress={() =>
-                        onChangeBrightness(Math.max(0.3, brightness - 0.1))
-                      }
-                      style={styles.settingIconButton}
-                    >
-                      <MaterialCommunityIcons
-                        color={theme.colors.lavender}
-                        name="minus"
-                        size={20}
-                      />
-                    </Pressable>
-                    <Text style={styles.brightnessValue}>
-                      {Math.round(brightness * 100)}%
-                    </Text>
-                    <Pressable
-                      accessibilityLabel="画面を明るくする"
-                      accessibilityRole="button"
-                      onPress={() =>
-                        onChangeBrightness(Math.min(1, brightness + 0.1))
-                      }
-                      style={styles.settingIconButton}
-                    >
-                      <MaterialCommunityIcons
-                        color={theme.colors.lavender}
-                        name="plus"
-                        size={20}
-                      />
-                    </Pressable>
-                  </View>
-                </View>
                 <SettingRow
                   label="通知"
                   onValueChange={onNotificationChange}
@@ -759,7 +682,14 @@ function SettingsModal({
                     name="restart"
                     size={24}
                   />
-                  <Text style={styles.resetEntryText}>最初からやり直す</Text>
+                  <Text
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.75}
+                    numberOfLines={1}
+                    style={styles.resetEntryText}
+                  >
+                    最初からやり直す
+                  </Text>
                 </Pressable>
               </ScrollView>
             </>
@@ -1061,6 +991,38 @@ function clamp(value: number, min: number, max: number) {
 }
 
 const styles = StyleSheet.create({
+  accountActionDivider: {
+    borderBottomColor: "rgba(205,196,232,0.72)",
+    borderBottomWidth: 1,
+  },
+  accountActionRow: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    gap: 17,
+    minHeight: 0,
+    paddingHorizontal: "7.5%",
+  },
+  accountActionsPanel: {
+    backgroundColor: "#ffffff",
+    borderColor: "rgba(204,194,234,0.88)",
+    borderRadius: 18,
+    borderWidth: 1,
+    height: "20.8%",
+    left: "11.4%",
+    overflow: "hidden",
+    position: "absolute",
+    top: "57.9%",
+    width: "77.2%",
+    zIndex: 10,
+  },
+  accountActionText: {
+    color: "#25256f",
+    flex: 1,
+    flexShrink: 1,
+    fontSize: 17,
+    fontWeight: "900",
+  },
   artboard: {
     alignSelf: "center",
     flex: 1,
@@ -1105,18 +1067,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "900",
   },
-  brightnessGroup: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 10,
-  },
-  brightnessValue: {
-    color: "#29236f",
-    fontSize: 14,
-    fontWeight: "900",
-    minWidth: 40,
-    textAlign: "center",
-  },
   buttonPressed: {
     opacity: 0.78,
     transform: [{ scale: 0.985 }],
@@ -1149,14 +1099,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     overflow: "hidden",
-  },
-  dataRowHotspot: {
-    height: "6.9%",
-    left: "11.5%",
-    position: "absolute",
-    top: "71.8%",
-    width: "77%",
-    zIndex: 10,
   },
   designImage: {
     bottom: 0,
@@ -1206,21 +1148,6 @@ const styles = StyleSheet.create({
   filterOptionSelected: {
     backgroundColor: "#a991ed",
   },
-  frequencyGroup: {
-    alignItems: "center",
-    backgroundColor: "#f2edfb",
-    borderRadius: 999,
-    flexDirection: "row",
-    gap: 4,
-    padding: 3,
-  },
-  frequencyValue: {
-    color: "#29236f",
-    fontSize: 14,
-    fontWeight: "900",
-    minWidth: 48,
-    textAlign: "center",
-  },
   itemStateBadge: {
     alignItems: "center",
     backgroundColor: "rgba(118,87,227,0.93)",
@@ -1236,6 +1163,7 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
     marginTop: 22,
   },
@@ -1252,6 +1180,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     minHeight: 50,
+    minWidth: 118,
+    paddingHorizontal: 10,
   },
   modalCard: {
     borderRadius: 26,
@@ -1373,14 +1303,6 @@ const styles = StyleSheet.create({
     width: "26.4%",
     zIndex: 8,
   },
-  profileRowHotspot: {
-    height: "6.9%",
-    left: "11.5%",
-    position: "absolute",
-    top: "58%",
-    width: "77%",
-    zIndex: 10,
-  },
   resetButton: {
     backgroundColor: "#e05f99",
   },
@@ -1403,6 +1325,8 @@ const styles = StyleSheet.create({
   },
   resetEntryText: {
     color: "#d95591",
+    flex: 1,
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: "900",
   },
@@ -1467,16 +1391,6 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     letterSpacing: 0,
   },
-  settingIconButton: {
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderColor: "#e1d7f2",
-    borderRadius: 999,
-    borderWidth: 1,
-    height: 32,
-    justifyContent: "center",
-    width: 32,
-  },
   settingRow: {
     alignItems: "center",
     borderBottomColor: "#eee8f8",
@@ -1487,14 +1401,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     paddingVertical: 11,
   },
-  settingsHotspot: {
-    borderRadius: 12,
-    height: "4.8%",
+  pageHeaderOverlay: {
+    alignItems: "center",
+    backgroundColor: "#faf9ff",
+    borderBottomColor: "rgba(205,195,234,0.75)",
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    borderBottomWidth: 1,
+    height: "9.5%",
+    justifyContent: "center",
+    left: 0,
     position: "absolute",
-    right: "4.4%",
-    top: "2.6%",
-    width: "10.8%",
-    zIndex: 12,
+    right: 0,
+    top: 0,
+    zIndex: 11,
+  },
+  pageHeaderTitle: {
+    color: "#30267b",
+    fontSize: 25,
+    fontWeight: "900",
   },
   settingsScrollContent: {
     paddingBottom: 18,
@@ -1579,14 +1504,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 9,
     paddingVertical: 4,
     textAlign: "center",
-  },
-  soundRowHotspot: {
-    height: "6.9%",
-    left: "11.5%",
-    position: "absolute",
-    top: "64.9%",
-    width: "77%",
-    zIndex: 10,
   },
   statOverlay: {
     alignItems: "center",

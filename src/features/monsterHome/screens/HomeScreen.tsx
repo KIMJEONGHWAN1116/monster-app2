@@ -13,6 +13,7 @@ import {
 
 import { MogumoguButton } from "../components/BottomTabBar";
 import { HungerCard } from "../components/HungerCard";
+import { MonsterPreview } from "../components/MonsterPreview";
 import { MonsterStage } from "../components/MonsterStage";
 import { SoundPressable as Pressable } from "../components/SoundPressable";
 import { EvolutionChoice } from "../state/evolution";
@@ -27,6 +28,7 @@ import {
 } from "../state/feedCharges";
 import { MainTabKey } from "../state/navigation";
 import { MonsterState } from "../state/monsterState";
+import { restoreOnaka } from "../state/onaka";
 import { MonsterTheme, monsterTheme } from "../styles/theme";
 
 const homeScreenBackground = require("../../../assets/images/home/home-screen-background.png");
@@ -66,6 +68,7 @@ export function HomeScreen({
   const isCompactHeight = height < 740;
   const stageWidth = artboardWidth * (isCompactHeight ? 0.72 : 0.79);
   const restoredFeedCharges = restoreFeedCharges(monster, now);
+  const restoredOnaka = restoreOnaka(monster, now);
   const nextChargeInMilliseconds = getMillisecondsUntilNextFeedCharge(
     restoredFeedCharges,
     now
@@ -191,6 +194,7 @@ export function HomeScreen({
 
         {eggRemainingMilliseconds !== null ? (
           <EggIncubator
+            hasHatchedMonster={monster.eggHatchRevealedAt !== null}
             isCompactHeight={isCompactHeight}
             onHatchPress={onEggHatchPress}
             remainingMilliseconds={eggRemainingMilliseconds}
@@ -204,7 +208,7 @@ export function HomeScreen({
             maxFeedCharges={MAX_FEED_CHARGES}
             nextChargeInMilliseconds={nextChargeInMilliseconds}
             opaque
-            percent={monster.onakaPercent}
+            percent={restoredOnaka.onakaPercent}
             theme={theme}
           />
         </View>
@@ -275,10 +279,12 @@ export function HomeScreen({
 }
 
 function EggIncubator({
+  hasHatchedMonster,
   isCompactHeight,
   onHatchPress,
   remainingMilliseconds,
 }: {
+  hasHatchedMonster: boolean;
   isCompactHeight: boolean;
   onHatchPress: () => void;
   remainingMilliseconds: number;
@@ -321,7 +327,11 @@ function EggIncubator({
 
   return (
     <Pressable
-      accessibilityLabel={`新しいたまご、${remainingLabel}`}
+      accessibilityLabel={
+        hasHatchedMonster
+          ? "生まれたモンスター、交代を決める"
+          : `新しいたまご、${remainingLabel}`
+      }
       accessibilityRole="button"
       onPress={showEggStatus}
       style={({ pressed }) => [
@@ -331,20 +341,32 @@ function EggIncubator({
         pressed && styles.pressed,
       ]}
     >
-      <Animated.Image
-        resizeMode="contain"
-        source={magicalEgg}
+      <Animated.View
         style={[
-          styles.eggWidgetImage,
+          styles.eggWidgetVisual,
           { transform: [{ translateY: eggFloat }] },
         ]}
-      />
+      >
+        {hasHatchedMonster ? (
+          <MonsterPreview size={46} />
+        ) : (
+          <Image
+            resizeMode="contain"
+            source={magicalEgg}
+            style={styles.eggWidgetImage}
+          />
+        )}
+      </Animated.View>
       <View style={styles.eggWidgetCopy}>
         <Text numberOfLines={1} style={styles.eggWidgetTitle}>
-          {isHatched ? "ふ化したよ" : "新しいたまご"}
+          {hasHatchedMonster
+            ? "新しいモンスター"
+            : isHatched
+              ? "ふ化したよ"
+              : "新しいたまご"}
         </Text>
         <Text numberOfLines={2} style={styles.eggWidgetTime}>
-          {remainingLabel}
+          {hasHatchedMonster ? "交代を決めよう" : remainingLabel}
         </Text>
       </View>
     </Pressable>
@@ -413,7 +435,14 @@ const styles = StyleSheet.create({
     borderColor: "rgba(240,193,91,0.76)",
   },
   eggWidgetImage: {
+    height: "100%",
+    width: "100%",
+  },
+  eggWidgetVisual: {
+    alignItems: "center",
     height: 58,
+    justifyContent: "center",
+    overflow: "hidden",
     width: 58,
   },
   eggWidgetTime: {

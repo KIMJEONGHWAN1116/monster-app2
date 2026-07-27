@@ -51,7 +51,6 @@ export type FeedFeelingOption = {
   label: string;
 };
 
-const anxietyEvolutionImage = require("../../../assets/images/evolution/anxiety-evolution-mint.png");
 const anxietyEvolutionLockedImage = require("../../../assets/images/evolution/S-anxiety-evolution-mint.png");
 const ikariEvolutionImage = require("../../../assets/images/evolution/ikari-evolution.png");
 const ikariEvolutionLockedImage = require("../../../assets/images/evolution/S-ikari-evolution.png");
@@ -63,6 +62,11 @@ const baranEvolutionImage = require("../../../assets/images/evolution/S-baran.pn
 const nemuriEvolutionImage = require("../../../assets/images/evolution/S-nemuri.png");
 const sizukuEvolutionImage = require("../../../assets/images/evolution/S-sizuku.png");
 const kaburiEvolutionImage = require("../../../assets/images/evolution/S-kaburi.png");
+const anxietyArmsIdle = require("../../../assets/lottie/evolution/anxiety-arms-idle.json") as AnimationObject;
+const anxietyArmsTouch = require("../../../assets/lottie/evolution/anxiety-arms-touch.json") as AnimationObject;
+const anxietyBodyIdle = require("../../../assets/lottie/evolution/anxiety-body-idle.json") as AnimationObject;
+const anxietyFaceIdle = require("../../../assets/lottie/evolution/anxiety-face-idle.json") as AnimationObject;
+const anxietyFaceTouch = require("../../../assets/lottie/evolution/anxiety-face-touch.json") as AnimationObject;
 const ikariDevilArmsIdle = require("../../../assets/lottie/evolution/ikari-devil-arms-idle.json") as AnimationObject;
 const ikariDevilArmsTouch = require("../../../assets/lottie/evolution/ikari-devil-arms-touch.json") as AnimationObject;
 const ikariDevilBodyIdle = require("../../../assets/lottie/evolution/ikari-devil-body-idle.json") as AnimationObject;
@@ -94,10 +98,18 @@ export const evolutionChoices: EvolutionChoice[] = [
       "不安やこわさを多く食べて育つ進化先。揺れる気持ちをそっと包み、深呼吸できる場所をつくってくれます。",
     id: "anxiety",
     keywords: ["不安", "心配", "こわい"],
-    name: "不安タイプ",
+    name: "ドーシヨ",
     visual: {
-      imageSource: anxietyEvolutionImage,
-      kind: "image",
+      animation: {
+        idleArmSource: anxietyArmsIdle,
+        idleBodySource: anxietyBodyIdle,
+        idleFaceSource: anxietyFaceIdle,
+        previewScale: 3,
+        stageScale: 3,
+        touchArmSource: anxietyArmsTouch,
+        touchFaceSource: anxietyFaceTouch,
+      },
+      kind: "lottie",
       lockedImageSource: anxietyEvolutionLockedImage,
     },
   },
@@ -107,7 +119,7 @@ export const evolutionChoices: EvolutionChoice[] = [
       "イライラやくやしさを多く食べて育つ進化先。熱くなった気持ちを受け止め、あなたの代わりに小さくふんばってくれます。",
     id: "ikari",
     keywords: ["イライラ", "怒り", "くやしい"],
-    name: "いかりタイプ",
+    name: "ダマレ",
     visual: {
       animation: {
         idleArmSource: ikariDevilArmsIdle,
@@ -129,7 +141,7 @@ export const evolutionChoices: EvolutionChoice[] = [
       "かなしさやさみしさを多く食べて育つ進化先。こぼれそうな気持ちに寄り添い、静かにそばにいてくれます。",
     id: "kanashimi",
     keywords: ["かなしい", "さみしい", "つらい"],
-    name: "かなしみタイプ",
+    name: "ナキソ",
     visual: {
       imageSource: kanashimiEvolutionImage,
       kind: "image",

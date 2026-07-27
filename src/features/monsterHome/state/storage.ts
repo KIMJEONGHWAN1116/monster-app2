@@ -3,7 +3,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { EmotionLogEntry } from "./emotionLog";
 import { MAX_FEED_CHARGES, restoreFeedCharges } from "./feedCharges";
 import { initialMonsterState, MonsterState } from "./monsterState";
-import { MissionId } from "./missions";
+import { isMissionClaimKey, type MissionClaimKey } from "./missions";
+import { restoreOnaka } from "./onaka";
 import { isProfileAvatarId } from "./profile";
 import {
   getShopItemById,
@@ -83,10 +84,17 @@ export async function loadMonsterState() {
       ownedItemIds,
       equippedItemIds
     );
-    const onakaPercent =
-      typeof parsedMonster.onakaPercent === "number"
-        ? Math.min(Math.max(parsedMonster.onakaPercent, 0), 100)
-        : initialMonsterState.onakaPercent;
+    const onakaState = restoreOnaka({
+      onakaPercent:
+        typeof parsedMonster.onakaPercent === "number"
+          ? parsedMonster.onakaPercent
+          : initialMonsterState.onakaPercent,
+      onakaUpdatedAt:
+        typeof (parsedMonster as { onakaUpdatedAt?: unknown })
+          .onakaUpdatedAt === "number"
+          ? (parsedMonster as { onakaUpdatedAt: number }).onakaUpdatedAt
+          : null,
+    });
     const bgmTrack = normalizeBgmTrack(
       (parsedMonster as { bgmTrack?: unknown }).bgmTrack
     );
@@ -156,8 +164,20 @@ export async function loadMonsterState() {
       ...feedChargeState,
       growthStartedAt,
       hasCompletedProfile,
+      hungerNotificationId:
+        typeof (parsedMonster as { hungerNotificationId?: unknown })
+          .hungerNotificationId === "string"
+          ? (parsedMonster as { hungerNotificationId: string })
+              .hungerNotificationId
+          : null,
       name: parsedMonster.name ?? initialMonsterState.name,
-      onakaPercent,
+      notificationsEnabled:
+        typeof (parsedMonster as { notificationsEnabled?: unknown })
+          .notificationsEnabled === "boolean"
+          ? (parsedMonster as { notificationsEnabled: boolean })
+              .notificationsEnabled
+          : initialMonsterState.notificationsEnabled,
+      ...onakaState,
       ownedItemIds,
       points,
       profileAvatarId,
@@ -279,21 +299,10 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function normalizeMissionIds(ids: unknown): MissionId[] {
+function normalizeMissionIds(ids: unknown): MissionClaimKey[] {
   if (!Array.isArray(ids)) return [];
 
-  return Array.from(
-    new Set(
-      ids.filter(
-        (id): id is MissionId =>
-          id === "today-feed" ||
-          id === "week-three-feeds" ||
-          id === "three-feelings" ||
-          id === "full-onaka" ||
-          id === "first-evolution"
-      )
-    )
-  );
+  return Array.from(new Set(ids.filter(isMissionClaimKey)));
 }
 
 export async function saveMonsterState(monster: MonsterState) {

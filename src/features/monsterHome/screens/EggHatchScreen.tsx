@@ -25,6 +25,7 @@ const simpleEgg = require("../../../assets/images/egg/simple-magical-egg.png");
 type EggHatchScreenProps = {
   onKeepCurrent: () => void;
   onReplace: (monsterName: string) => void;
+  skipHatchAnimation?: boolean;
   soundVolume: number;
   theme?: MonsterTheme;
 };
@@ -32,6 +33,7 @@ type EggHatchScreenProps = {
 export function EggHatchScreen({
   onKeepCurrent,
   onReplace,
+  skipHatchAnimation = false,
   soundVolume,
   theme = monsterTheme,
 }: EggHatchScreenProps) {
@@ -43,7 +45,7 @@ export function EggHatchScreen({
     isCompactHeight ? 205 : 270
   );
   const eggSize = monsterSize * 0.82;
-  const [isReady, setIsReady] = useState(false);
+  const [isReady, setIsReady] = useState(skipHatchAnimation);
   const [newMonsterName, setNewMonsterName] = useState("");
   const [step, setStep] = useState<"choice" | "naming">("choice");
   const trimmedMonsterName = newMonsterName.trim();
@@ -52,21 +54,46 @@ export function EggHatchScreen({
     enableIdleCalls: false,
     volume: soundVolume,
   });
-  const sceneOpacity = useRef(new Animated.Value(0)).current;
-  const eggOpacity = useRef(new Animated.Value(1)).current;
-  const eggScale = useRef(new Animated.Value(0.9)).current;
+  const sceneOpacity = useRef(
+    new Animated.Value(skipHatchAnimation ? 1 : 0)
+  ).current;
+  const eggOpacity = useRef(
+    new Animated.Value(skipHatchAnimation ? 0 : 1)
+  ).current;
+  const eggScale = useRef(
+    new Animated.Value(skipHatchAnimation ? 1.12 : 0.9)
+  ).current;
   const eggShake = useRef(new Animated.Value(0)).current;
-  const auraOpacity = useRef(new Animated.Value(0.2)).current;
-  const auraScale = useRef(new Animated.Value(0.72)).current;
+  const auraOpacity = useRef(
+    new Animated.Value(skipHatchAnimation ? 0.68 : 0.2)
+  ).current;
+  const auraScale = useRef(
+    new Animated.Value(skipHatchAnimation ? 1 : 0.72)
+  ).current;
   const flashOpacity = useRef(new Animated.Value(0)).current;
-  const monsterOpacity = useRef(new Animated.Value(0)).current;
-  const monsterScale = useRef(new Animated.Value(0.62)).current;
-  const monsterTranslateY = useRef(new Animated.Value(16)).current;
-  const resultOpacity = useRef(new Animated.Value(0)).current;
-  const resultTranslateY = useRef(new Animated.Value(18)).current;
+  const monsterOpacity = useRef(
+    new Animated.Value(skipHatchAnimation ? 1 : 0)
+  ).current;
+  const monsterScale = useRef(
+    new Animated.Value(skipHatchAnimation ? 1 : 0.62)
+  ).current;
+  const monsterTranslateY = useRef(
+    new Animated.Value(skipHatchAnimation ? 0 : 16)
+  ).current;
+  const resultOpacity = useRef(
+    new Animated.Value(skipHatchAnimation ? 1 : 0)
+  ).current;
+  const resultTranslateY = useRef(
+    new Animated.Value(skipHatchAnimation ? 0 : 18)
+  ).current;
   const sparklePulse = useRef(new Animated.Value(0.45)).current;
 
   useEffect(() => {
+    if (skipHatchAnimation) {
+      const voiceTimer = setTimeout(() => playIdleVoice(), 180);
+      return () => clearTimeout(voiceTimer);
+    }
+
     const readyTimer = setTimeout(() => setIsReady(true), 2850);
     const voiceTimer = setTimeout(() => playIdleVoice(), 2150);
     const sparkleAnimation = Animated.loop(
@@ -197,6 +224,7 @@ export function EggHatchScreen({
     resultOpacity,
     resultTranslateY,
     sceneOpacity,
+    skipHatchAnimation,
     sparklePulse,
   ]);
 

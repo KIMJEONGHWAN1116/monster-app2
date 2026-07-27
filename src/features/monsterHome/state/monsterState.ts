@@ -1,6 +1,6 @@
 import type { EvolutionId } from "./evolution";
 import { MAX_FEED_CHARGES } from "./feedCharges";
-import type { MissionId } from "./missions";
+import type { MissionClaimKey } from "./missions";
 import type { ProfileAvatarId } from "./profile";
 import type { RoomItemPlacements, ShopItemSlot } from "./shopItems";
 
@@ -9,7 +9,7 @@ export type BgmTrackId = "nukumori" | "hidamari";
 export type MonsterState = {
   bgmTrack: BgmTrackId;
   bgmVolume: number;
-  claimedMissionIds: MissionId[];
+  claimedMissionIds: MissionClaimKey[];
   eggDiscoveredAt: number | null;
   eggHatchRevealedAt: number | null;
   equippedItemIds: Partial<Record<ShopItemSlot, string>>;
@@ -18,8 +18,11 @@ export type MonsterState = {
   feedChargeUpdatedAt: number | null;
   hasCompletedProfile: boolean;
   growthStartedAt: number | null;
+  hungerNotificationId: string | null;
   name: string;
+  notificationsEnabled: boolean;
   onakaPercent: number;
+  onakaUpdatedAt: number | null;
   ownedItemIds: string[];
   points: number;
   profileAvatarId: ProfileAvatarId;
@@ -35,7 +38,7 @@ export type FeedEmotion = {
   note: string;
 };
 
-export const ONAKA_GAIN_PER_FEED = 6;
+export const ONAKA_GAIN_PER_FEED = 11;
 
 export const initialMonsterState: MonsterState = {
   bgmTrack: "nukumori",
@@ -49,8 +52,11 @@ export const initialMonsterState: MonsterState = {
   feedChargeUpdatedAt: null,
   growthStartedAt: null,
   hasCompletedProfile: false,
+  hungerNotificationId: null,
   name: "モンスターの名前",
+  notificationsEnabled: true,
   onakaPercent: 0,
+  onakaUpdatedAt: null,
   ownedItemIds: [],
   points: 0,
   profileAvatarId: "star",
