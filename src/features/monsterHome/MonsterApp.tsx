@@ -1,10 +1,14 @@
+import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from "expo-av";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Platform, StyleSheet, View } from "react-native";
 
 import { LaunchScreen } from "./components/LaunchScreen";
+import { ScreenTransition } from "./components/ScreenTransition";
+import { ButtonSoundProvider } from "./components/SoundPressable";
 import { AutoEvolutionScreen } from "./screens/AutoEvolutionScreen";
 import { EggDiscoveryScreen } from "./screens/EggDiscoveryScreen";
+import { EggHatchScreen } from "./screens/EggHatchScreen";
 import { EmotionLogScreen } from "./screens/EmotionLogScreen";
 import { FeedEmotionScreen } from "./screens/FeedEmotionScreen";
 import { FeedReactionScreen } from "./screens/FeedReactionScreen";
@@ -22,12 +26,18 @@ import {
   getEvolutionById,
 } from "./state/evolution";
 import {
+  EGG_HATCH_DURATION_MS,
+  getEggRemainingMilliseconds,
+} from "./state/egg";
+import {
   consumeFeedCharge,
   getMillisecondsUntilNextFeedCharge,
+  MAX_FEED_CHARGES,
   restoreFeedCharges,
 } from "./state/feedCharges";
 import { getMissionStatuses, MissionStatus } from "./state/missions";
 import {
+  type BgmTrackId,
   FeedEmotion,
   initialMonsterState,
   ONAKA_GAIN_PER_FEED,
@@ -50,6 +60,7 @@ type AppMode =
   | "feedReaction"
   | "autoEvolution"
   | "eggDiscovery"
+  | "eggHatch"
   | "dex"
   | "mission"
   | "profileSetup";
@@ -63,6 +74,7 @@ export function MonsterApp() {
   const [mode, setMode] = useState<AppMode>("launch");
   const [activeTab, setActiveTab] = useState<MainTabKey>("home");
   const [emotionLogs, setEmotionLogs] = useState<EmotionLogEntry[]>([]);
+  const [hasBgmUnlocked, setHasBgmUnlocked] = useState(Platform.OS !== "web");
   const [hasLoadedLogs, setHasLoadedLogs] = useState(false);
   const [hasLoadedMonster, setHasLoadedMonster] = useState(false);
   const [monster, setMonster] = useState(initialMonsterState);
@@ -73,10 +85,24 @@ export function MonsterApp() {
     () => getEvolutionById(monster.evolutionId),
     [monster.evolutionId]
   );
+  const growthEmotionLogs = useMemo(() => {
+    if (monster.growthStartedAt === null) return emotionLogs;
+
+    return emotionLogs.filter((log) => {
+      const createdAt = new Date(log.createdAt).getTime();
+      return (
+        Number.isFinite(createdAt) && createdAt >= monster.growthStartedAt!
+      );
+    });
+  }, [emotionLogs, monster.growthStartedAt]);
   const missions = useMemo(
     () => getMissionStatuses(emotionLogs, monster),
     [emotionLogs, monster]
   );
+  const bgmSoundRef = useRef<Audio.Sound | null>(null);
+  const bgmTrackRef = useRef<BgmTrackId | null>(null);
+  const bgmSyncGenerationRef = useRef(0);
+  const bgmSyncQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     if (Platform.OS !== "web" || typeof document === "undefined") return;
@@ -146,6 +172,106 @@ export function MonsterApp() {
   }, [hasLoadedMonster, monster]);
 
   useEffect(() => {
+    if (!hasBgmUnlocked || !hasLoadedMonster) return;
+
+    const generation = ++bgmSyncGenerationRef.current;
+    const nextTrack = monster.bgmTrack;
+    const nextVolume = Math.min(1, Math.max(0, monster.bgmVolume));
+
+    bgmSyncQueueRef.current = bgmSyncQueueRef.current
+      .catch(() => undefined)
+      .then(async () => {
+        if (generation !== bgmSyncGenerationRef.current) return;
+
+        try {
+          await Audio.setAudioModeAsync({
+            allowsRecordingIOS: false,
+            interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
+            interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+            playsInSilentModeIOS: true,
+            shouldDuckAndroid: true,
+            staysActiveInBackground: false,
+          });
+
+          const currentSound = bgmSoundRef.current;
+
+          if (currentSound && bgmTrackRef.current === nextTrack) {
+            const status = await currentSound.getStatusAsync();
+
+            if (status.isLoaded) {
+              await currentSound.setVolumeAsync(nextVolume);
+
+              if (nextVolume === 0 && status.isPlaying) {
+                await currentSound.pauseAsync();
+              } else if (nextVolume > 0 && !status.isPlaying) {
+                await currentSound.playAsync();
+              }
+
+              return;
+            }
+          }
+
+          if (currentSound) {
+            const status = await currentSound.getStatusAsync();
+
+            if (status.isLoaded) {
+              await currentSound.stopAsync();
+              await currentSound.unloadAsync();
+            }
+
+            bgmSoundRef.current = null;
+            bgmTrackRef.current = null;
+          }
+
+          const source =
+            nextTrack === "hidamari"
+              ? require("../../assets/sounds/hidamariBGM.mp3")
+              : require("../../assets/sounds/nukumoriBGM.mp3");
+          const nextSound = new Audio.Sound();
+
+          await nextSound.loadAsync(source, {
+            isLooping: true,
+            shouldPlay: false,
+            volume: nextVolume,
+          });
+
+          if (generation !== bgmSyncGenerationRef.current) {
+            await nextSound.unloadAsync();
+            return;
+          }
+
+          bgmSoundRef.current = nextSound;
+          bgmTrackRef.current = nextTrack;
+
+          if (nextVolume > 0) {
+            await nextSound.playAsync();
+          }
+        } catch (error) {
+          console.warn("BGM playback failed", error);
+        }
+      });
+  }, [
+    hasBgmUnlocked,
+    hasLoadedMonster,
+    monster.bgmTrack,
+    monster.bgmVolume,
+  ]);
+
+  useEffect(() => {
+    return () => {
+      bgmSyncGenerationRef.current += 1;
+      const sound = bgmSoundRef.current;
+      bgmSoundRef.current = null;
+      bgmTrackRef.current = null;
+
+      if (sound) {
+        void sound.stopAsync().catch(() => undefined);
+        void sound.unloadAsync().catch(() => undefined);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!hasLoadedMonster) return;
 
     const refreshCharges = () => {
@@ -181,10 +307,10 @@ export function MonsterApp() {
       return;
     }
 
-    setPendingEvolution(getDominantEvolution(emotionLogs));
+    setPendingEvolution(getDominantEvolution(growthEmotionLogs));
     setMode("autoEvolution");
   }, [
-    emotionLogs,
+    growthEmotionLogs,
     hasLoadedLogs,
     hasLoadedMonster,
     mode,
@@ -227,12 +353,35 @@ export function MonsterApp() {
   };
 
   const startApp = () => {
+    setHasBgmUnlocked(true);
+
     if (monster.hasCompletedProfile) {
       openMainTab("home");
       return;
     }
 
     setMode("profileSetup");
+  };
+
+  const updateBgmTrack = (bgmTrack: BgmTrackId) => {
+    setMonster((currentMonster) => ({
+      ...currentMonster,
+      bgmTrack,
+    }));
+  };
+
+  const updateBgmVolume = (bgmVolume: number) => {
+    setMonster((currentMonster) => ({
+      ...currentMonster,
+      bgmVolume: Math.min(1, Math.max(0, bgmVolume)),
+    }));
+  };
+
+  const updateSeVolume = (seVolume: number) => {
+    setMonster((currentMonster) => ({
+      ...currentMonster,
+      seVolume: Math.min(1, Math.max(0, seVolume)),
+    }));
   };
 
   const openProfileSetup = () => {
@@ -249,8 +398,55 @@ export function MonsterApp() {
       ...currentMonster,
       onakaPercent: 100,
     }));
-    setPendingEvolution(getDominantEvolution(emotionLogs));
+    setPendingEvolution(getDominantEvolution(growthEmotionLogs));
     setMode("autoEvolution");
+  };
+
+  const openEggHatch = () => {
+    const remainingMilliseconds = getEggRemainingMilliseconds(
+      monster.eggDiscoveredAt
+    );
+
+    if (remainingMilliseconds === null || remainingMilliseconds > 0) {
+      return;
+    }
+
+    setMonster((currentMonster) => ({
+      ...currentMonster,
+      eggHatchRevealedAt:
+        currentMonster.eggHatchRevealedAt ?? Date.now(),
+    }));
+    setMode("eggHatch");
+  };
+
+  const startTestEggHatch = () => {
+    const now = Date.now();
+
+    setMonster((currentMonster) => ({
+      ...currentMonster,
+      eggDiscoveredAt: now - EGG_HATCH_DURATION_MS,
+      eggHatchRevealedAt: now,
+    }));
+    setMode("eggHatch");
+  };
+
+  const replaceWithHatchedMonster = (monsterName: string) => {
+    const now = Date.now();
+
+    setMonster((currentMonster) => ({
+      ...currentMonster,
+      eggDiscoveredAt: null,
+      eggHatchRevealedAt: null,
+      evolutionId: null,
+      feedChargeCount: MAX_FEED_CHARGES,
+      feedChargeUpdatedAt: null,
+      growthStartedAt: now,
+      name: monsterName,
+      onakaPercent: 0,
+    }));
+    setLastFeedResult(null);
+    setPendingEvolution(null);
+    openMainTab("home");
   };
 
   const saveProfile = ({
@@ -291,6 +487,7 @@ export function MonsterApp() {
 
     const nextLog = createEmotionLog(emotion);
     const nextLogs = [nextLog, ...emotionLogs];
+    const nextGrowthLogs = [nextLog, ...growthEmotionLogs];
     const gainedPercent = Math.max(
       0,
       Math.min(ONAKA_GAIN_PER_FEED, 100 - monster.onakaPercent)
@@ -312,7 +509,7 @@ export function MonsterApp() {
     }));
 
     if (nextOnakaPercent >= 100 && monster.evolutionId === null) {
-      setPendingEvolution(getDominantEvolution(nextLogs));
+      setPendingEvolution(getDominantEvolution(nextGrowthLogs));
       setMode("autoEvolution");
       return;
     }
@@ -328,6 +525,7 @@ export function MonsterApp() {
     setMonster((currentMonster) => ({
       ...currentMonster,
       eggDiscoveredAt: currentMonster.eggDiscoveredAt ?? eggDiscoveredAt,
+      eggHatchRevealedAt: null,
       evolutionId: evolution.id,
       name: evolution.name,
       onakaPercent: 0,
@@ -394,10 +592,14 @@ export function MonsterApp() {
     void resetStoredAppData().catch(() => undefined);
   };
 
+  const transitionKey = mode === "main" ? `main-${activeTab}` : mode;
+
   return (
-    <View style={styles.appRoot}>
-      <StatusBar style="dark" />
-      {mode === "launch" ? (
+    <ButtonSoundProvider volume={monster.seVolume}>
+      <View style={styles.appRoot}>
+        <StatusBar style="dark" />
+        <ScreenTransition key={transitionKey}>
+          {mode === "launch" ? (
         <LaunchScreen onStart={startApp} />
       ) : mode === "profileSetup" ? (
         <ProfileSetupScreen
@@ -429,7 +631,6 @@ export function MonsterApp() {
           gainedPercent={lastFeedResult.gainedPercent}
           onAgain={openFeedEmotion}
           onBack={() => openMainTab("home")}
-          onClose={() => openMainTab("home")}
           onGoLog={() => openMainTab("emotionLog")}
           roomItemPlacements={monster.roomItemPlacements}
           theme={monsterTheme}
@@ -445,10 +646,16 @@ export function MonsterApp() {
           onContinue={() => openMainTab("home")}
           theme={monsterTheme}
         />
+      ) : mode === "eggHatch" ? (
+        <EggHatchScreen
+          onKeepCurrent={() => openMainTab("home")}
+          onReplace={replaceWithHatchedMonster}
+          soundVolume={monster.seVolume}
+          theme={monsterTheme}
+        />
       ) : mode === "dex" ? (
         <MonsterDexScreen
           onBack={() => openMainTab("home")}
-          onClose={() => openMainTab("home")}
           onSelectEvolution={completeEvolution}
           registeredEvolutionIds={monster.registeredEvolutionIds}
           theme={monsterTheme}
@@ -458,7 +665,6 @@ export function MonsterApp() {
           missions={missions}
           onBack={() => openMainTab("home")}
           onClaim={claimMissionReward}
-          onClose={() => openMainTab("home")}
           points={monster.points}
           theme={monsterTheme}
         />
@@ -469,9 +675,11 @@ export function MonsterApp() {
           monster={monster}
           onDexPress={() => setMode("dex")}
           onEditMonsterName={openProfileSetup}
+          onEggHatchPress={openEggHatch}
           onMissionPress={() => setMode("mission")}
           onMogumoguPress={openFeedEmotion}
           onTabPress={openMainTab}
+          onTestEggHatchPress={startTestEggHatch}
           onTestEvolutionPress={startTestEvolution}
           theme={monsterTheme}
         />
@@ -498,14 +706,20 @@ export function MonsterApp() {
       ) : activeTab === "myPage" ? (
         <MyPageScreen
           activeTab={activeTab}
+          bgmTrack={monster.bgmTrack}
+          bgmVolume={monster.bgmVolume}
           currentEvolution={currentEvolution}
           logCount={emotionLogs.length}
           monster={monster}
+          onBgmTrackChange={updateBgmTrack}
+          onBgmVolumeChange={updateBgmVolume}
           onMogumoguPress={openFeedEmotion}
           onEditProfile={openProfileSetup}
           onResetData={resetAllData}
           onSaveRoom={saveRoomItemPlacements}
+          onSeVolumeChange={updateSeVolume}
           onTabPress={openMainTab}
+          seVolume={monster.seVolume}
           theme={monsterTheme}
         />
       ) : (
@@ -515,8 +729,10 @@ export function MonsterApp() {
           onTabPress={openMainTab}
           theme={monsterTheme}
         />
-      )}
-    </View>
+          )}
+        </ScreenTransition>
+      </View>
+    </ButtonSoundProvider>
   );
 }
 

@@ -1,4 +1,6 @@
-import { Pressable, StyleSheet, Text } from "react-native";
+import { StyleSheet, Text } from "react-native";
+
+import { SoundPressable as Pressable } from "./SoundPressable";
 
 import { MonsterTheme, monsterTheme } from "../styles/theme";
 

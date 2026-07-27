@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
 import {
   Image,
-  Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -12,6 +11,7 @@ import {
 } from "react-native";
 
 import { DressedMonsterPreview } from "../components/DressedMonsterPreview";
+import { SoundPressable as Pressable } from "../components/SoundPressable";
 import { EvolutionChoice, feedFeelingLabels } from "../state/evolution";
 import { FeedEmotion } from "../state/monsterState";
 import { RoomItemPlacements } from "../state/shopItems";
@@ -77,6 +77,7 @@ export function FeedEmotionScreen({
           source={feedEmotionDesign}
           style={styles.designImage}
         />
+        <View pointerEvents="none" style={styles.closeMask} />
 
         <Pressable
           accessibilityLabel="戻る"
@@ -85,16 +86,6 @@ export function FeedEmotionScreen({
           onPress={onBack}
           style={({ pressed }) => [
             styles.backHotspot,
-            pressed && styles.hotspotPressed,
-          ]}
-        />
-        <Pressable
-          accessibilityLabel="閉じる"
-          accessibilityRole="button"
-          hitSlop={8}
-          onPress={onBack}
-          style={({ pressed }) => [
-            styles.closeHotspot,
             pressed && styles.hotspotPressed,
           ]}
         />
@@ -199,21 +190,21 @@ const styles = StyleSheet.create({
     opacity: 0.76,
     transform: [{ scale: 0.98 }],
   },
-  closeHotspot: {
-    borderRadius: 999,
-    height: "5.5%",
+  closeMask: {
+    backgroundColor: "#f8f4fd",
+    height: "10.5%",
     position: "absolute",
-    right: "6.8%",
-    top: "3.8%",
-    width: "11.5%",
-    zIndex: 20,
+    right: 0,
+    top: 0,
+    width: "21%",
+    zIndex: 16,
   },
   container: {
     flex: 1,
     overflow: "hidden",
   },
   countText: {
-    backgroundColor: "rgba(255, 255, 255, 0.94)",
+    backgroundColor: "#ffffff",
     color: "#7567cf",
     fontSize: 13,
     fontWeight: "700",
@@ -251,7 +242,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(118, 87, 227, 0.08)",
   },
   inputFilled: {
-    backgroundColor: "rgba(255, 255, 255, 0.96)",
+    backgroundColor: "#ffffff",
   },
   inputSurface: {
     borderRadius: 8,

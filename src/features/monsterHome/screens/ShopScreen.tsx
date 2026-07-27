@@ -2,7 +2,6 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
 import {
   Image,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -12,6 +11,7 @@ import {
 } from "react-native";
 
 import { BottomTabBar } from "../components/BottomTabBar";
+import { SoundPressable as Pressable } from "../components/SoundPressable";
 import { MainTabKey } from "../state/navigation";
 import {
   ShopItem,

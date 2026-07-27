@@ -4,7 +4,6 @@ import {
   Alert,
   Animated,
   Image,
-  Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -15,6 +14,7 @@ import {
 import { MogumoguButton } from "../components/BottomTabBar";
 import { HungerCard } from "../components/HungerCard";
 import { MonsterStage } from "../components/MonsterStage";
+import { SoundPressable as Pressable } from "../components/SoundPressable";
 import { EvolutionChoice } from "../state/evolution";
 import {
   formatEggRemainingTime,
@@ -38,9 +38,11 @@ type HomeScreenProps = {
   monster: MonsterState;
   onDexPress: () => void;
   onEditMonsterName: () => void;
+  onEggHatchPress: () => void;
   onMissionPress: () => void;
   onMogumoguPress: () => void;
   onTabPress: (tab: MainTabKey) => void;
+  onTestEggHatchPress: () => void;
   onTestEvolutionPress: () => void;
   theme?: MonsterTheme;
 };
@@ -50,9 +52,11 @@ export function HomeScreen({
   monster,
   onDexPress,
   onEditMonsterName,
+  onEggHatchPress,
   onMissionPress,
   onMogumoguPress,
   onTabPress,
+  onTestEggHatchPress,
   onTestEvolutionPress,
   theme = monsterTheme,
 }: HomeScreenProps) {
@@ -72,9 +76,28 @@ export function HomeScreen({
   );
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 30 * 1000);
-    return () => clearInterval(timer);
-  }, []);
+    const refreshDelay =
+      eggRemainingMilliseconds !== null && eggRemainingMilliseconds > 0
+        ? Math.max(250, Math.min(30 * 1000, eggRemainingMilliseconds))
+        : 30 * 1000;
+    const timer = setTimeout(() => setNow(Date.now()), refreshDelay);
+
+    return () => clearTimeout(timer);
+  }, [eggRemainingMilliseconds]);
+
+  useEffect(() => {
+    if (
+      eggRemainingMilliseconds !== null &&
+      eggRemainingMilliseconds <= 0 &&
+      monster.eggHatchRevealedAt === null
+    ) {
+      onEggHatchPress();
+    }
+  }, [
+    eggRemainingMilliseconds,
+    monster.eggHatchRevealedAt,
+    onEggHatchPress,
+  ]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -92,7 +115,7 @@ export function HomeScreen({
             styles.nameEditor,
             isCompactHeight && styles.nameEditorCompact,
             {
-              backgroundColor: "rgba(255, 255, 255, 0.99)",
+              backgroundColor: "#ffffff",
               borderColor: theme.colors.lavenderTrack,
             },
             pressed && styles.pressed,
@@ -135,10 +158,32 @@ export function HomeScreen({
           </Pressable>
         ) : null}
 
+        {__DEV__ ? (
+          <Pressable
+            accessibilityLabel="テスト用にすぐたまごをふ化させる"
+            accessibilityRole="button"
+            onPress={onTestEggHatchPress}
+            style={({ pressed }) => [
+              styles.testHatchButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <MaterialCommunityIcons
+              color="#c15f9d"
+              name="egg-easter"
+              size={15}
+            />
+            <Text numberOfLines={1} style={styles.testHatchText}>
+              TEST ふ化
+            </Text>
+          </Pressable>
+        ) : null}
+
         <View style={styles.monsterSlot}>
           <MonsterStage
             evolutionVisual={currentEvolution?.visual}
             roomItemPlacements={monster.roomItemPlacements}
+            soundVolume={monster.seVolume}
             transparentBackground
             width={stageWidth}
           />
@@ -147,6 +192,7 @@ export function HomeScreen({
         {eggRemainingMilliseconds !== null ? (
           <EggIncubator
             isCompactHeight={isCompactHeight}
+            onHatchPress={onEggHatchPress}
             remainingMilliseconds={eggRemainingMilliseconds}
           />
         ) : null}
@@ -230,9 +276,11 @@ export function HomeScreen({
 
 function EggIncubator({
   isCompactHeight,
+  onHatchPress,
   remainingMilliseconds,
 }: {
   isCompactHeight: boolean;
+  onHatchPress: () => void;
   remainingMilliseconds: number;
 }) {
   const eggFloat = useRef(new Animated.Value(0)).current;
@@ -260,11 +308,14 @@ function EggIncubator({
   }, [eggFloat, isHatched]);
 
   const showEggStatus = () => {
+    if (isHatched) {
+      onHatchPress();
+      return;
+    }
+
     Alert.alert(
-      isHatched ? "たまごがふ化したよ！" : "新しいたまご",
-      isHatched
-        ? "新しい仲間が生まれました。そっと会いにきてくれるのを待っています。"
-        : `${remainingLabel}でふ化するよ。モンスターと一緒に見守ろう。`
+      "新しいたまご",
+      `${remainingLabel}でふ化するよ。モンスターと一緒に見守ろう。`
     );
   };
 
@@ -494,6 +545,28 @@ const styles = StyleSheet.create({
   },
   testEvolutionText: {
     color: "#7657e3",
+    fontSize: 9,
+    fontWeight: "900",
+  },
+  testHatchButton: {
+    alignItems: "center",
+    backgroundColor: "rgba(255,250,255,0.92)",
+    borderColor: "rgba(222,142,193,0.62)",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 3,
+    height: "4.4%",
+    justifyContent: "center",
+    left: "3.5%",
+    paddingHorizontal: 5,
+    position: "absolute",
+    top: "11.4%",
+    width: "20%",
+    zIndex: 9,
+  },
+  testHatchText: {
+    color: "#b25190",
     fontSize: 9,
     fontWeight: "900",
   },

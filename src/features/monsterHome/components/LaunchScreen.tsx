@@ -1,7 +1,6 @@
 import {
   Animated,
   Image,
-  Pressable,
   SafeAreaView,
   StyleSheet,
   useWindowDimensions,
@@ -9,8 +8,10 @@ import {
 } from "react-native";
 import { useEffect, useRef } from "react";
 
+import { SoundPressable as Pressable } from "./SoundPressable";
+
 const launchScreenDesign = require("../../../assets/images/launch/launch-screen-design.png");
-const launchLogo = require("../../../assets/images/launch/launch-logo.png");
+const launchLogo = require("../../../assets/images/launch/launch-logo-moyamogu.png");
 const launchSilhouette = require("../../../assets/images/launch/launch-silhouette.png");
 
 type LaunchScreenProps = {

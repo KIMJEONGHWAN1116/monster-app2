@@ -4,7 +4,6 @@ import {
   Image,
   ImageSourcePropType,
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,6 +12,7 @@ import {
 } from "react-native";
 
 import { MonsterPreview } from "../components/MonsterPreview";
+import { SoundPressable as Pressable } from "../components/SoundPressable";
 import {
   EvolutionChoice,
   evolutionChoices,
@@ -37,7 +37,6 @@ const CARD_ROWS = [
 
 type MonsterDexScreenProps = {
   onBack: () => void;
-  onClose: () => void;
   onSelectEvolution: (evolution: EvolutionChoice) => void;
   registeredEvolutionIds: EvolutionId[];
   theme?: MonsterTheme;
@@ -45,7 +44,6 @@ type MonsterDexScreenProps = {
 
 export function MonsterDexScreen({
   onBack,
-  onClose,
   onSelectEvolution,
   registeredEvolutionIds,
   theme = monsterTheme,
@@ -110,6 +108,16 @@ export function MonsterDexScreen({
               }}
             />
           </View>
+          <View
+            pointerEvents="none"
+            style={[
+              styles.headerCloseMask,
+              {
+                height: 176 * scale,
+                width: 180 * scale,
+              },
+            ]}
+          />
 
           <Pressable
             accessibilityLabel="戻る"
@@ -121,22 +129,6 @@ export function MonsterDexScreen({
               {
                 height: 91 * scale,
                 left: 58 * scale,
-                top: 51 * scale,
-                width: 91 * scale,
-              },
-              pressed && styles.buttonPressed,
-            ]}
-          />
-          <Pressable
-            accessibilityLabel="閉じる"
-            accessibilityRole="button"
-            hitSlop={8}
-            onPress={onClose}
-            style={({ pressed }) => [
-              styles.headerHotspot,
-              {
-                height: 91 * scale,
-                left: 714 * scale,
                 top: 51 * scale,
                 width: 91 * scale,
               },
@@ -452,7 +444,7 @@ const styles = StyleSheet.create({
   },
   card: {
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.97)",
+    backgroundColor: "#ffffff",
     borderColor: "rgba(207, 196, 248, 0.94)",
     justifyContent: "flex-start",
     overflow: "hidden",
@@ -486,6 +478,13 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     borderRadius: 999,
     position: "absolute",
+  },
+  headerCloseMask: {
+    backgroundColor: "#f8f4fd",
+    position: "absolute",
+    right: 0,
+    top: 0,
+    zIndex: 5,
   },
   lockBadge: {
     alignItems: "center",
@@ -555,7 +554,7 @@ const styles = StyleSheet.create({
   },
   progressCountPatch: {
     alignItems: "flex-end",
-    backgroundColor: "rgba(251, 249, 253, 0.98)",
+    backgroundColor: "#fbf9fd",
     justifyContent: "center",
     paddingRight: 2,
     position: "absolute",
@@ -566,7 +565,7 @@ const styles = StyleSheet.create({
     height: "100%",
   },
   progressTrack: {
-    backgroundColor: "rgba(239, 234, 250, 0.94)",
+    backgroundColor: "#efeafa",
     borderColor: "#cfc4f4",
     borderRadius: 999,
     borderWidth: 1,
@@ -575,7 +574,7 @@ const styles = StyleSheet.create({
   },
   registeredBadge: {
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.72)",
+    backgroundColor: "#ffffff",
     borderWidth: 1,
     justifyContent: "center",
   },

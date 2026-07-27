@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import {
-  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -10,6 +9,7 @@ import {
   View,
 } from "react-native";
 
+import { SoundPressable as Pressable } from "../components/SoundPressable";
 import { MissionStatus } from "../state/missions";
 import { MonsterTheme, monsterTheme } from "../styles/theme";
 
@@ -17,7 +17,6 @@ type MissionScreenProps = {
   missions: MissionStatus[];
   onBack: () => void;
   onClaim: (mission: MissionStatus) => void;
-  onClose: () => void;
   points: number;
   theme?: MonsterTheme;
 };
@@ -26,7 +25,6 @@ export function MissionScreen({
   missions,
   onBack,
   onClaim,
-  onClose,
   points,
   theme = monsterTheme,
 }: MissionScreenProps) {
@@ -140,23 +138,7 @@ export function MissionScreen({
           </View>
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="閉じる"
-          hitSlop={12}
-          onPress={onClose}
-          style={({ pressed }) => [
-            styles.headerButton,
-            {
-              backgroundColor: "rgba(255, 255, 255, 0.78)",
-              borderColor: theme.colors.lavenderTrack,
-            },
-            theme.shadow,
-            pressed && styles.buttonPressed,
-          ]}
-        >
-          <Ionicons name="close" size={34} color="#25265e" />
-        </Pressable>
+        <View style={styles.headerButtonSpacer} />
       </View>
 
       <ScrollView
@@ -382,6 +364,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: 62,
     justifyContent: "center",
+    width: 62,
+  },
+  headerButtonSpacer: {
+    height: 62,
     width: 62,
   },
   iconBox: {

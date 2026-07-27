@@ -2,7 +2,6 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useMemo, useState } from "react";
 import {
   Image,
-  Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -13,6 +12,7 @@ import Svg, { Circle } from "react-native-svg";
 
 import { BottomTabBar } from "../components/BottomTabBar";
 import { DressedMonsterPreview } from "../components/DressedMonsterPreview";
+import { SoundPressable as Pressable } from "../components/SoundPressable";
 import {
   countLogsByFeeling,
   EmotionLogEntry,

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   Image,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
 } from "react-native";
 
 import { DressedMonsterPreview } from "../components/DressedMonsterPreview";
+import { SoundPressable as Pressable } from "../components/SoundPressable";
 import { generateGeminiMonsterReaction } from "../services/geminiReaction";
 import { EvolutionChoice } from "../state/evolution";
 import { FeedEmotion } from "../state/monsterState";
@@ -25,7 +25,6 @@ type FeedReactionScreenProps = {
   gainedPercent: number;
   onAgain: () => void;
   onBack: () => void;
-  onClose: () => void;
   onGoLog: () => void;
   roomItemPlacements: RoomItemPlacements;
   theme?: MonsterTheme;
@@ -37,7 +36,6 @@ export function FeedReactionScreen({
   gainedPercent,
   onAgain,
   onBack,
-  onClose,
   onGoLog,
   roomItemPlacements,
   theme = monsterTheme,
@@ -81,6 +79,7 @@ export function FeedReactionScreen({
           source={feedReactionDesign}
           style={styles.designImage}
         />
+        <View pointerEvents="none" style={styles.closeMask} />
 
         <Pressable
           accessibilityLabel="戻る"
@@ -89,16 +88,6 @@ export function FeedReactionScreen({
           onPress={onBack}
           style={({ pressed }) => [
             styles.backHotspot,
-            pressed && styles.hotspotPressed,
-          ]}
-        />
-        <Pressable
-          accessibilityLabel="閉じる"
-          accessibilityRole="button"
-          hitSlop={8}
-          onPress={onClose}
-          style={({ pressed }) => [
-            styles.closeHotspot,
             pressed && styles.hotspotPressed,
           ]}
         />
@@ -203,14 +192,14 @@ const styles = StyleSheet.create({
     width: "11.5%",
     zIndex: 20,
   },
-  closeHotspot: {
-    borderRadius: 999,
-    height: "5.5%",
+  closeMask: {
+    backgroundColor: "#f8f4fd",
+    height: "10.5%",
     position: "absolute",
-    right: "6.8%",
-    top: "3.8%",
-    width: "11.5%",
-    zIndex: 20,
+    right: 0,
+    top: 0,
+    width: "21%",
+    zIndex: 16,
   },
   container: {
     flex: 1,
@@ -227,7 +216,7 @@ const styles = StyleSheet.create({
   },
   gainSurface: {
     alignItems: "center",
-    backgroundColor: "rgba(240, 232, 255, 0.97)",
+    backgroundColor: "#f0e8ff",
     borderRadius: 999,
     height: "4.7%",
     justifyContent: "center",
@@ -266,7 +255,7 @@ const styles = StyleSheet.create({
   },
   noteSurface: {
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.96)",
+    backgroundColor: "#f8f5fa",
     height: "4.5%",
     justifyContent: "center",
     left: "13%",
@@ -286,10 +275,12 @@ const styles = StyleSheet.create({
   reactionContent: {
     flexGrow: 1,
     justifyContent: "center",
+    paddingHorizontal: 10,
     paddingVertical: 3,
   },
   reactionSurface: {
-    backgroundColor: "rgba(249, 247, 255, 0.97)",
+    backgroundColor: "#f0ecfa",
+    borderRadius: 12,
     height: "9.1%",
     left: "23.5%",
     position: "absolute",
@@ -299,9 +290,9 @@ const styles = StyleSheet.create({
   },
   reactionText: {
     color: "#29236f",
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: "800",
     letterSpacing: 0,
-    lineHeight: 22,
+    lineHeight: 18,
   },
 });

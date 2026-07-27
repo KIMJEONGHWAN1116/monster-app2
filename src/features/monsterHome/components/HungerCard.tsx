@@ -28,7 +28,7 @@ export function HungerCard({
         compact && styles.compactCard,
         {
           backgroundColor: opaque
-            ? "rgba(255, 255, 255, 0.98)"
+            ? "#ffffff"
             : "rgba(255, 255, 255, 0.76)",
           borderColor: theme.colors.lavenderTrack,
         },

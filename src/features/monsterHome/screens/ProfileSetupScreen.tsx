@@ -7,7 +7,6 @@ import {
   Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
-  Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -16,6 +15,7 @@ import {
   View,
 } from "react-native";
 
+import { SoundPressable as Pressable } from "../components/SoundPressable";
 import { ProfileAvatarId } from "../state/profile";
 import { MonsterTheme, monsterTheme } from "../styles/theme";
 
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
   },
   birthdayControl: {
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.97)",
+    backgroundColor: "#ffffff",
     borderRadius: 18,
     flexDirection: "row",
     height: "6.5%",
@@ -583,7 +583,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   nameInput: {
-    backgroundColor: "rgba(255, 255, 255, 0.97)",
+    backgroundColor: "#ffffff",
     borderRadius: 18,
     color: "#191d69",
     fontSize: 21,

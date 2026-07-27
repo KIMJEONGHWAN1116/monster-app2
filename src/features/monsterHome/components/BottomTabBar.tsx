@@ -1,4 +1,6 @@
-import { Image, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Image, StyleSheet, useWindowDimensions, View } from "react-native";
+
+import { SoundPressable as Pressable } from "./SoundPressable";
 
 import { MainTabKey } from "../state/navigation";
 import { MonsterTheme, monsterTheme } from "../styles/theme";

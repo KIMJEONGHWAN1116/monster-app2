@@ -1,5 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
+
+import { SoundPressable as Pressable } from "./SoundPressable";
 
 import { MonsterTheme, monsterTheme } from "../styles/theme";
 

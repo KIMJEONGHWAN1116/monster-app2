@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import LottieView from "lottie-react-native";
+import { useMonsterVoice } from "../hooks/useMonsterVoice";
 import type { EvolutionAnimation, EvolutionVisual } from "../state/evolution";
 import { getPlacedShopItems, RoomItemPlacements } from "../state/shopItems";
 
@@ -26,6 +27,7 @@ const noBrowserPanStyle =
 type MonsterStageProps = {
   evolutionVisual?: EvolutionVisual | null;
   roomItemPlacements?: RoomItemPlacements;
+  soundVolume?: number;
   transparentBackground?: boolean;
   width: number;
 };
@@ -35,6 +37,7 @@ type MonsterMotion = "" | "jump" | "squash";
 export function MonsterStage({
   evolutionVisual,
   roomItemPlacements = {},
+  soundVolume = 0.72,
   transparentBackground = false,
   width,
 }: MonsterStageProps) {
@@ -53,6 +56,7 @@ export function MonsterStage({
   const translateY = useRef(new Animated.Value(0)).current;
   const scaleX = useRef(new Animated.Value(1)).current;
   const scaleY = useRef(new Animated.Value(1)).current;
+  const { playTouchVoice } = useMonsterVoice({ volume: soundVolume });
 
   const evolutionImage =
     evolutionVisual?.kind === "image" ? evolutionVisual.imageSource : null;
@@ -123,23 +127,23 @@ export function MonsterStage({
     evolutionTouchTimerRef.current = null;
   };
 
-  const showEvolutionTouch = () => {
+  const isEvolutionTouchAvailable = () => {
     const animation = evolutionAnimationRef.current;
-    const hasTouchState =
-      Boolean(animation?.touchArmSource) || Boolean(animation?.touchFaceSource);
+    return (
+      Boolean(animation?.touchArmSource) || Boolean(animation?.touchFaceSource)
+    );
+  };
 
-    if (!hasTouchState) return;
+  const showEvolutionTouch = () => {
+    if (!isEvolutionTouchAvailable()) return false;
 
     clearEvolutionTouchTimer();
     setIsEvolutionTouched(true);
+    return true;
   };
 
   const hideEvolutionTouchSoon = () => {
-    const animation = evolutionAnimationRef.current;
-    const hasTouchState =
-      Boolean(animation?.touchArmSource) || Boolean(animation?.touchFaceSource);
-
-    if (!hasTouchState) return;
+    if (!isEvolutionTouchAvailable()) return;
 
     clearEvolutionTouchTimer();
     evolutionTouchTimerRef.current = setTimeout(() => {
@@ -301,7 +305,9 @@ export function MonsterStage({
   const panResponder = useRef(
     PanResponder.create({
       onPanResponderGrant: () => {
-        showEvolutionTouch();
+        if (showEvolutionTouch()) {
+          playTouchVoice();
+        }
       },
       onStartShouldSetPanResponderCapture: () => true,
       onStartShouldSetPanResponder: () => true,
@@ -317,15 +323,24 @@ export function MonsterStage({
           if (!evolutionAnimationRef.current) {
             handleBlink();
           }
+          if (!isEvolutionTouchAvailable()) {
+            playTouchVoice();
+          }
           return;
         }
 
         if (diffY < -50) {
+          if (!isEvolutionTouchAvailable()) {
+            playTouchVoice();
+          }
           runJump();
           return;
         }
 
         if (diffY > 50) {
+          if (!isEvolutionTouchAvailable()) {
+            playTouchVoice();
+          }
           runSquash();
         }
       },

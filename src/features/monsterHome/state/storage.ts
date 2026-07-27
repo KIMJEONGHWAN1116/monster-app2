@@ -61,6 +61,13 @@ export async function loadMonsterState() {
       (parsedMonster as { eggDiscoveredAt?: unknown }).eggDiscoveredAt,
       evolutionId
     );
+    const eggHatchRevealedAt = normalizeEggHatchRevealedAt(
+      (parsedMonster as { eggHatchRevealedAt?: unknown }).eggHatchRevealedAt,
+      eggDiscoveredAt
+    );
+    const growthStartedAt = normalizeOptionalTimestamp(
+      (parsedMonster as { growthStartedAt?: unknown }).growthStartedAt
+    );
     const claimedMissionIds = normalizeMissionIds(
       (parsedMonster as { claimedMissionIds?: unknown }).claimedMissionIds
     );
@@ -80,6 +87,23 @@ export async function loadMonsterState() {
       typeof parsedMonster.onakaPercent === "number"
         ? Math.min(Math.max(parsedMonster.onakaPercent, 0), 100)
         : initialMonsterState.onakaPercent;
+    const bgmTrack = normalizeBgmTrack(
+      (parsedMonster as { bgmTrack?: unknown }).bgmTrack
+    );
+    const bgmVolume =
+      typeof (parsedMonster as { bgmVolume?: unknown }).bgmVolume === "number"
+        ? Math.min(
+            Math.max((parsedMonster as { bgmVolume: number }).bgmVolume, 0),
+            1
+          )
+        : initialMonsterState.bgmVolume;
+    const seVolume =
+      typeof (parsedMonster as { seVolume?: unknown }).seVolume === "number"
+        ? Math.min(
+            Math.max((parsedMonster as { seVolume: number }).seVolume, 0),
+            1
+          )
+        : initialMonsterState.seVolume;
     const points =
       typeof (parsedMonster as { points?: unknown }).points === "number"
         ? Math.max(0, Math.floor((parsedMonster as { points: number }).points))
@@ -122,11 +146,15 @@ export async function loadMonsterState() {
 
     return {
       ...initialMonsterState,
+      bgmTrack,
+      bgmVolume,
       claimedMissionIds,
       eggDiscoveredAt,
+      eggHatchRevealedAt,
       equippedItemIds,
       evolutionId,
       ...feedChargeState,
+      growthStartedAt,
       hasCompletedProfile,
       name: parsedMonster.name ?? initialMonsterState.name,
       onakaPercent,
@@ -136,6 +164,7 @@ export async function loadMonsterState() {
       profileImageUri,
       registeredEvolutionIds,
       roomItemPlacements,
+      seVolume,
       userBirthday,
     };
   } catch {
@@ -143,17 +172,35 @@ export async function loadMonsterState() {
   }
 }
 
+function normalizeBgmTrack(track: unknown): MonsterState["bgmTrack"] {
+  return track === "hidamari" ? "hidamari" : "nukumori";
+}
+
 function normalizeEggDiscoveredAt(
   value: unknown,
   evolutionId: MonsterState["evolutionId"]
 ) {
-  if (!evolutionId) return null;
-
   if (typeof value === "number" && Number.isFinite(value) && value > 0) {
     return Math.min(value, Date.now());
   }
 
-  return Date.now();
+  return evolutionId ? Date.now() : null;
+}
+
+function normalizeEggHatchRevealedAt(
+  value: unknown,
+  eggDiscoveredAt: number | null
+) {
+  if (eggDiscoveredAt === null) return null;
+  return normalizeOptionalTimestamp(value);
+}
+
+function normalizeOptionalTimestamp(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+
+  return Math.min(value, Date.now());
 }
 
 function normalizeShopItemIds(ids: unknown) {

@@ -4,7 +4,6 @@ import {
   Animated,
   Easing,
   Image,
-  Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -12,6 +11,7 @@ import {
   View,
 } from "react-native";
 
+import { SoundPressable as Pressable } from "../components/SoundPressable";
 import { MonsterTheme, monsterTheme } from "../styles/theme";
 
 const roomBackground = require("../../../assets/images/shop/shop-room-background.png");

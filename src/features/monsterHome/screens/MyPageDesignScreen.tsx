@@ -11,7 +11,6 @@ import {
   Modal,
   PanResponder,
   Platform,
-  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -23,8 +22,9 @@ import {
 
 import { BottomTabBar } from "../components/BottomTabBar";
 import { MonsterPreview } from "../components/MonsterPreview";
+import { SoundPressable as Pressable } from "../components/SoundPressable";
 import { EvolutionChoice } from "../state/evolution";
-import { MonsterState } from "../state/monsterState";
+import { BgmTrackId, MonsterState } from "../state/monsterState";
 import { MainTabKey } from "../state/navigation";
 import {
   getPlacedShopItems,
@@ -57,33 +57,44 @@ type RoomFilter = "all" | ShopItemSlot;
 
 type MyPageScreenProps = {
   activeTab: MainTabKey;
+  bgmTrack: BgmTrackId;
+  bgmVolume: number;
   currentEvolution: EvolutionChoice | null;
   logCount: number;
   monster: MonsterState;
+  onBgmTrackChange: (track: BgmTrackId) => void;
+  onBgmVolumeChange: (volume: number) => void;
   onMogumoguPress: () => void;
   onEditProfile: () => void;
   onResetData: () => void;
   onSaveRoom: (placements: RoomItemPlacements) => void;
+  onSeVolumeChange: (volume: number) => void;
   onTabPress: (tab: MainTabKey) => void;
+  seVolume: number;
   theme?: MonsterTheme;
 };
 
 export function MyPageScreen({
   activeTab,
+  bgmTrack,
+  bgmVolume,
   currentEvolution,
   logCount,
   monster,
+  onBgmTrackChange,
+  onBgmVolumeChange,
   onMogumoguPress,
   onEditProfile,
   onResetData,
   onSaveRoom,
+  onSeVolumeChange,
   onTabPress,
+  seVolume,
   theme = monsterTheme,
 }: MyPageScreenProps) {
   const { width } = useWindowDimensions();
   const artboardWidth = Math.min(width, 430);
   const roomStageSize = Math.min(artboardWidth * 0.61, 270);
-  const [bgmVolume, setBgmVolume] = useState(0.75);
   const [brightness, setBrightness] = useState(0.75);
   const [draftPlacements, setDraftPlacements] = useState<RoomItemPlacements>(
     monster.roomItemPlacements
@@ -96,7 +107,6 @@ export function MyPageScreen({
   const [monsterVoiceEnabled, setMonsterVoiceEnabled] = useState(true);
   const [notificationEnabled, setNotificationEnabled] = useState(true);
   const [roomFilter, setRoomFilter] = useState<RoomFilter>("all");
-  const [seVolume, setSeVolume] = useState(0.72);
   const [talkFrequency, setTalkFrequency] =
     useState<"low" | "normal" | "high" | "loud">("normal");
   const ownedSet = useMemo(
@@ -416,6 +426,7 @@ export function MyPageScreen({
       )}
 
       <SettingsModal
+        bgmTrack={bgmTrack}
         bgmVolume={bgmVolume}
         brightness={brightness}
         currentTalkFrequency={currentTalkFrequency.label}
@@ -424,9 +435,10 @@ export function MyPageScreen({
         isResetting={isResetting}
         monsterVoiceEnabled={monsterVoiceEnabled}
         notificationEnabled={notificationEnabled}
-        onChangeBgm={setBgmVolume}
+        onChangeBgm={onBgmVolumeChange}
+        onChangeBgmTrack={onBgmTrackChange}
         onChangeBrightness={setBrightness}
-        onChangeSe={setSeVolume}
+        onChangeSe={onSeVolumeChange}
         onChangeVoice={setMonsterVoiceEnabled}
         onClose={() => {
           setIsConfirmingReset(false);
@@ -504,6 +516,7 @@ function StatOverlay({
 }
 
 function SettingsModal({
+  bgmTrack,
   bgmVolume,
   brightness,
   currentTalkFrequency,
@@ -513,6 +526,7 @@ function SettingsModal({
   monsterVoiceEnabled,
   notificationEnabled,
   onChangeBgm,
+  onChangeBgmTrack,
   onChangeBrightness,
   onChangeSe,
   onChangeVoice,
@@ -525,6 +539,7 @@ function SettingsModal({
   seVolume,
   theme,
 }: {
+  bgmTrack: BgmTrackId;
   bgmVolume: number;
   brightness: number;
   currentTalkFrequency: string;
@@ -534,6 +549,7 @@ function SettingsModal({
   monsterVoiceEnabled: boolean;
   notificationEnabled: boolean;
   onChangeBgm: (value: number) => void;
+  onChangeBgmTrack: (track: BgmTrackId) => void;
   onChangeBrightness: (value: number) => void;
   onChangeSe: (value: number) => void;
   onChangeVoice: (value: boolean) => void;
@@ -558,14 +574,23 @@ function SettingsModal({
           style={[
             styles.modalCard,
             {
-              backgroundColor: theme.colors.white,
+              backgroundColor: "#fbf9ff",
               borderColor: theme.colors.lavenderTrack,
             },
           ]}
         >
           {isConfirmingReset ? (
-            <>
-              <Text style={styles.modalTitle}>本当にリセットする？</Text>
+            <View style={styles.resetConfirmContent}>
+              <View style={styles.resetConfirmIcon}>
+                <MaterialCommunityIcons
+                  color="#dc5f96"
+                  name="restart-alert"
+                  size={30}
+                />
+              </View>
+              <Text style={[styles.modalTitle, styles.resetConfirmTitle]}>
+                本当にリセットする？
+              </Text>
               <Text style={styles.modalText}>
                 モンスター、感情ログ、図鑑、ポイント、アイテムが最初の状態に戻ります。
               </Text>
@@ -590,15 +615,31 @@ function SettingsModal({
                   </Text>
                 </Pressable>
               </View>
-            </>
+            </View>
           ) : (
             <>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>設定</Text>
+                <View style={styles.modalTitleGroup}>
+                  <View style={styles.modalTitleIcon}>
+                    <MaterialCommunityIcons
+                      color={theme.colors.lavender}
+                      name="tune-variant"
+                      size={25}
+                    />
+                  </View>
+                  <View>
+                    <Text style={styles.modalEyebrow}>SETTING</Text>
+                    <Text style={styles.modalTitle}>設定</Text>
+                  </View>
+                </View>
                 <Pressable
                   accessibilityLabel="設定を閉じる"
                   accessibilityRole="button"
                   onPress={onClose}
+                  style={({ pressed }) => [
+                    styles.modalCloseButton,
+                    pressed && styles.buttonPressed,
+                  ]}
                 >
                   <MaterialCommunityIcons
                     color="#25265e"
@@ -607,7 +648,16 @@ function SettingsModal({
                   />
                 </Pressable>
               </View>
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView
+                contentContainerStyle={styles.settingsScrollContent}
+                showsVerticalScrollIndicator={false}
+              >
+                <SettingsSectionHeader icon="music-note" label="サウンド" />
+                <BgmTrackControl
+                  onChange={onChangeBgmTrack}
+                  theme={theme}
+                  value={bgmTrack}
+                />
                 <SettingSliderRow
                   label="BGM音量"
                   onValueChange={onChangeBgm}
@@ -618,6 +668,7 @@ function SettingsModal({
                   onValueChange={onChangeSe}
                   value={seVolume}
                 />
+                <SettingsSectionHeader icon="message-text" label="モンスター" />
                 <SettingRow
                   label="モンスターの鳴き声"
                   onValueChange={onChangeVoice}
@@ -626,7 +677,12 @@ function SettingsModal({
                 <View style={styles.settingRow}>
                   <Text style={styles.settingLabel}>話す頻度</Text>
                   <View style={styles.frequencyGroup}>
-                    <Pressable onPress={() => onFrequencyChange(-1)}>
+                    <Pressable
+                      accessibilityLabel="話す頻度を下げる"
+                      accessibilityRole="button"
+                      onPress={() => onFrequencyChange(-1)}
+                      style={styles.settingIconButton}
+                    >
                       <MaterialCommunityIcons
                         color={theme.colors.lavender}
                         name="chevron-left"
@@ -636,7 +692,12 @@ function SettingsModal({
                     <Text style={styles.frequencyValue}>
                       {currentTalkFrequency}
                     </Text>
-                    <Pressable onPress={() => onFrequencyChange(1)}>
+                    <Pressable
+                      accessibilityLabel="話す頻度を上げる"
+                      accessibilityRole="button"
+                      onPress={() => onFrequencyChange(1)}
+                      style={styles.settingIconButton}
+                    >
                       <MaterialCommunityIcons
                         color={theme.colors.lavender}
                         name="chevron-right"
@@ -645,25 +706,40 @@ function SettingsModal({
                     </Pressable>
                   </View>
                 </View>
+                <SettingsSectionHeader icon="cellphone-cog" label="アプリ" />
                 <View style={styles.settingRow}>
                   <Text style={styles.settingLabel}>画面の明るさ</Text>
                   <View style={styles.brightnessGroup}>
                     <Pressable
+                      accessibilityLabel="画面を暗くする"
+                      accessibilityRole="button"
                       onPress={() =>
                         onChangeBrightness(Math.max(0.3, brightness - 0.1))
                       }
+                      style={styles.settingIconButton}
                     >
-                      <Text style={styles.brightnessButton}>−</Text>
+                      <MaterialCommunityIcons
+                        color={theme.colors.lavender}
+                        name="minus"
+                        size={20}
+                      />
                     </Pressable>
                     <Text style={styles.brightnessValue}>
                       {Math.round(brightness * 100)}%
                     </Text>
                     <Pressable
+                      accessibilityLabel="画面を明るくする"
+                      accessibilityRole="button"
                       onPress={() =>
                         onChangeBrightness(Math.min(1, brightness + 0.1))
                       }
+                      style={styles.settingIconButton}
                     >
-                      <Text style={styles.brightnessButton}>＋</Text>
+                      <MaterialCommunityIcons
+                        color={theme.colors.lavender}
+                        name="plus"
+                        size={20}
+                      />
                     </Pressable>
                   </View>
                 </View>
@@ -694,6 +770,73 @@ function SettingsModal({
   );
 }
 
+function SettingsSectionHeader({
+  icon,
+  label,
+}: {
+  icon: "cellphone-cog" | "message-text" | "music-note";
+  label: string;
+}) {
+  return (
+    <View style={styles.settingsSectionHeader}>
+      <MaterialCommunityIcons color="#9a80e2" name={icon} size={16} />
+      <Text style={styles.settingsSectionLabel}>{label}</Text>
+      <View style={styles.settingsSectionLine} />
+    </View>
+  );
+}
+
+function BgmTrackControl({
+  onChange,
+  theme,
+  value,
+}: {
+  onChange: (track: BgmTrackId) => void;
+  theme: MonsterTheme;
+  value: BgmTrackId;
+}) {
+  const options: Array<{ label: string; value: BgmTrackId }> = [
+    { label: "ぬくもり", value: "nukumori" },
+    { label: "ひだまり", value: "hidamari" },
+  ];
+
+  return (
+    <View style={styles.settingRow}>
+      <Text style={styles.settingLabel}>BGM</Text>
+      <View style={styles.bgmTrackControl}>
+        {options.map((option) => {
+          const isSelected = option.value === value;
+
+          return (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
+              key={option.value}
+              onPress={() => onChange(option.value)}
+              style={[
+                styles.bgmTrackOption,
+                isSelected && {
+                  backgroundColor: theme.colors.white,
+                  borderColor: theme.colors.lavender,
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.bgmTrackOptionText,
+                  isSelected && { color: theme.colors.lavender },
+                ]}
+              >
+                {option.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 function SettingSliderRow({
   label,
   onValueChange,
@@ -703,13 +846,12 @@ function SettingSliderRow({
   onValueChange: (value: number) => void;
   value: number;
 }) {
-  const [trackLayout, setTrackLayout] = useState({ x: 0, width: 0 });
+  const [trackWidth, setTrackWidth] = useState(0);
 
-  const updateSliderFromPosition = (clientX: number) => {
-    if (trackLayout.width === 0) return;
+  const updateSliderFromPosition = (localX: number) => {
+    if (trackWidth === 0) return;
 
-    const relativeX = clientX - trackLayout.x;
-    const nextValue = Math.min(1, Math.max(0, relativeX / trackLayout.width));
+    const nextValue = Math.min(1, Math.max(0, localX / trackWidth));
     onValueChange(Number(nextValue.toFixed(2)));
   };
 
@@ -717,34 +859,58 @@ function SettingSliderRow({
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: () => true,
-        onPanResponderGrant: (_, gestureState) =>
-          updateSliderFromPosition(gestureState.x0),
-        onPanResponderMove: (_, gestureState) =>
-          updateSliderFromPosition(gestureState.moveX),
+        onPanResponderGrant: (event) =>
+          updateSliderFromPosition(event.nativeEvent.locationX),
+        onPanResponderMove: (event) =>
+          updateSliderFromPosition(event.nativeEvent.locationX),
         onStartShouldSetPanResponder: () => true,
       }),
-    [trackLayout.width, trackLayout.x, onValueChange]
+    [trackWidth, onValueChange]
   );
 
+  const valuePercent = Math.round(value * 100);
+  const sliderIcon = label === "BGM音量" ? "music-note" : "volume-high";
+
   return (
-    <View style={styles.settingRow}>
-      <Text style={styles.settingLabel}>{label}</Text>
-      <View style={styles.sliderBlock}>
-        <View
-          accessibilityRole="adjustable"
-          {...panResponder.panHandlers}
-          onLayout={(event: LayoutChangeEvent) =>
-            setTrackLayout({
-              width: event.nativeEvent.layout.width,
-              x: event.nativeEvent.layout.x,
-            })
-          }
-          style={styles.sliderTrack}
-        >
-          <View style={[styles.sliderFill, { width: `${value * 100}%` }]} />
-          <View style={[styles.sliderThumb, { left: `${value * 100}%` }]} />
+    <View style={styles.sliderSettingRow}>
+      <View style={styles.sliderHeader}>
+        <View style={styles.sliderLabelGroup}>
+          <MaterialCommunityIcons
+            color="#7657e3"
+            name={sliderIcon}
+            size={18}
+          />
+          <Text style={styles.settingLabel}>{label}</Text>
         </View>
-        <Text style={styles.sliderValue}>{Math.round(value * 100)}%</Text>
+        <Text style={styles.sliderValue}>{valuePercent}%</Text>
+      </View>
+      <View style={styles.sliderBlock}>
+        <MaterialCommunityIcons color="#b6a8d8" name="volume-low" size={18} />
+        <View
+          accessibilityActions={[
+            { name: "decrement", label: `${label}を下げる` },
+            { name: "increment", label: `${label}を上げる` },
+          ]}
+          accessibilityLabel={label}
+          accessibilityRole="adjustable"
+          accessibilityValue={{ max: 100, min: 0, now: valuePercent }}
+          {...panResponder.panHandlers}
+          onAccessibilityAction={(event) => {
+            const direction =
+              event.nativeEvent.actionName === "increment" ? 0.05 : -0.05;
+            onValueChange(Number(clamp(value + direction, 0, 1).toFixed(2)));
+          }}
+          onLayout={(event: LayoutChangeEvent) =>
+            setTrackWidth(event.nativeEvent.layout.width)
+          }
+          style={[styles.sliderGestureArea, noBrowserPanStyle]}
+        >
+          <View pointerEvents="none" style={styles.sliderTrack}>
+            <View style={[styles.sliderFill, { width: `${valuePercent}%` }]} />
+            <View style={[styles.sliderThumb, { left: `${valuePercent}%` }]} />
+          </View>
+        </View>
+        <MaterialCommunityIcons color="#7657e3" name="volume-high" size={19} />
       </View>
     </View>
   );
@@ -762,7 +928,13 @@ function SettingRow({
   return (
     <View style={styles.settingRow}>
       <Text style={styles.settingLabel}>{label}</Text>
-      <Switch onValueChange={onValueChange} value={value} />
+      <Switch
+        ios_backgroundColor="#ddd5ea"
+        onValueChange={onValueChange}
+        thumbColor="#ffffff"
+        trackColor={{ false: "#ddd5ea", true: "#aa91ec" }}
+        value={value}
+      />
     </View>
   );
 }
@@ -911,15 +1083,32 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "900",
   },
-  brightnessButton: {
-    color: "#7657e3",
-    fontSize: 22,
+  bgmTrackControl: {
+    backgroundColor: "#eee8fa",
+    borderRadius: 14,
+    flexDirection: "row",
+    gap: 4,
+    padding: 4,
+    width: "64%",
+  },
+  bgmTrackOption: {
+    alignItems: "center",
+    borderColor: "transparent",
+    borderRadius: 11,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 38,
+  },
+  bgmTrackOptionText: {
+    color: "#747989",
+    fontSize: 13,
     fontWeight: "900",
   },
   brightnessGroup: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 14,
+    gap: 10,
   },
   brightnessValue: {
     color: "#29236f",
@@ -1019,8 +1208,11 @@ const styles = StyleSheet.create({
   },
   frequencyGroup: {
     alignItems: "center",
+    backgroundColor: "#f2edfb",
+    borderRadius: 999,
     flexDirection: "row",
-    gap: 8,
+    gap: 4,
+    padding: 3,
   },
   frequencyValue: {
     color: "#29236f",
@@ -1045,14 +1237,14 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: "row",
     gap: 10,
-    marginTop: 18,
+    marginTop: 22,
   },
   modalBackdrop: {
     alignItems: "center",
-    backgroundColor: "rgba(34,30,62,0.28)",
+    backgroundColor: "rgba(42, 34, 79, 0.34)",
     flex: 1,
     justifyContent: "center",
-    padding: 22,
+    padding: 18,
   },
   modalButton: {
     alignItems: "center",
@@ -1062,18 +1254,43 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   modalCard: {
-    borderRadius: 24,
+    borderRadius: 26,
     borderWidth: 1,
-    maxHeight: "78%",
+    maxHeight: "86%",
     maxWidth: 390,
-    padding: 20,
+    overflow: "hidden",
+    shadowColor: "#5f46a5",
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.22,
+    shadowRadius: 32,
     width: "100%",
+  },
+  modalCloseButton: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.82)",
+    borderColor: "#e2d8f4",
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  modalEyebrow: {
+    color: "#9a87cf",
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 0,
+    lineHeight: 11,
   },
   modalHeader: {
     alignItems: "center",
+    backgroundColor: "#f4effd",
+    borderBottomColor: "#e6dcf7",
+    borderBottomWidth: 1,
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 15,
   },
   modalText: {
     color: "#747989",
@@ -1084,8 +1301,24 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     color: "#29236f",
-    fontSize: 21,
+    fontSize: 22,
     fontWeight: "900",
+    letterSpacing: 0,
+  },
+  modalTitleGroup: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 11,
+  },
+  modalTitleIcon: {
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderColor: "#ded2f4",
+    borderRadius: 14,
+    borderWidth: 1,
+    height: 43,
+    justifyContent: "center",
+    width: 43,
   },
   monsterNameOverlay: {
     alignItems: "center",
@@ -1164,13 +1397,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: "row",
     gap: 10,
-    marginTop: 14,
-    padding: 15,
+    marginBottom: 6,
+    marginTop: 18,
+    padding: 14,
   },
   resetEntryText: {
     color: "#d95591",
     fontSize: 15,
     fontWeight: "900",
+  },
+  resetConfirmContent: {
+    alignItems: "center",
+    padding: 24,
+  },
+  resetConfirmIcon: {
+    alignItems: "center",
+    backgroundColor: "#fff0f7",
+    borderColor: "#f4bfd8",
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 64,
+    justifyContent: "center",
+    marginBottom: 14,
+    width: 64,
+  },
+  resetConfirmTitle: {
+    textAlign: "center",
   },
   roomBackHotspot: {
     borderRadius: 999,
@@ -1211,8 +1463,19 @@ const styles = StyleSheet.create({
   },
   settingLabel: {
     color: "#29236f",
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "900",
+    letterSpacing: 0,
+  },
+  settingIconButton: {
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderColor: "#e1d7f2",
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 32,
+    justifyContent: "center",
+    width: 32,
   },
   settingRow: {
     alignItems: "center",
@@ -1220,8 +1483,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     flexDirection: "row",
     justifyContent: "space-between",
-    minHeight: 58,
-    paddingVertical: 10,
+    minHeight: 62,
+    paddingHorizontal: 2,
+    paddingVertical: 11,
   },
   settingsHotspot: {
     borderRadius: 12,
@@ -1232,38 +1496,89 @@ const styles = StyleSheet.create({
     width: "10.8%",
     zIndex: 12,
   },
+  settingsScrollContent: {
+    paddingBottom: 18,
+    paddingHorizontal: 18,
+  },
+  settingsSectionHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 7,
+    marginTop: 18,
+  },
+  settingsSectionLabel: {
+    color: "#8d78c7",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 0,
+  },
+  settingsSectionLine: {
+    backgroundColor: "#e8e0f5",
+    flex: 1,
+    height: 1,
+  },
   sliderBlock: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 10,
-    width: "54%",
+    gap: 8,
+    marginTop: 9,
+    width: "100%",
   },
   sliderFill: {
     backgroundColor: "#9b7fea",
     borderRadius: 999,
     height: "100%",
   },
+  sliderGestureArea: {
+    flex: 1,
+    height: 34,
+    justifyContent: "center",
+  },
+  sliderHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  sliderLabelGroup: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 7,
+  },
+  sliderSettingRow: {
+    borderBottomColor: "#eee8f8",
+    borderBottomWidth: 1,
+    paddingVertical: 12,
+  },
   sliderThumb: {
     backgroundColor: "#7657e3",
+    borderColor: "#ffffff",
     borderRadius: 999,
-    height: 16,
-    marginLeft: -8,
-    marginTop: -5,
+    borderWidth: 3,
+    height: 22,
+    marginLeft: -11,
+    marginTop: -8,
     position: "absolute",
     top: "50%",
-    width: 16,
+    width: 22,
   },
   sliderTrack: {
     backgroundColor: "#e7d8fb",
     borderRadius: 999,
-    height: 6,
+    height: 7,
     position: "relative",
-    width: "74%",
+    width: "100%",
   },
   sliderValue: {
-    color: "#747989",
-    fontSize: 12,
+    backgroundColor: "#eee7fb",
+    borderRadius: 999,
+    color: "#7657e3",
+    fontSize: 11,
     fontWeight: "900",
+    minWidth: 48,
+    overflow: "hidden",
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    textAlign: "center",
   },
   soundRowHotspot: {
     height: "6.9%",
