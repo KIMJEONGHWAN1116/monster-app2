@@ -1,3 +1,4 @@
+import { Asset } from "expo-asset";
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from "expo-av";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -21,9 +22,9 @@ import { ProfileSetupScreen } from "./screens/ProfileSetupScreen";
 import { ShopScreen } from "./screens/ShopScreen";
 import { createEmotionLog, EmotionLogEntry } from "./state/emotionLog";
 import {
-    EvolutionChoice,
-    getDominantEvolution,
-    getEvolutionById,
+  EvolutionChoice,
+  getDominantEvolution,
+  getEvolutionById,
 } from "./state/evolution";
 import {
   EGG_HATCH_DURATION_MS,
@@ -45,17 +46,23 @@ import {
 import { MainTabKey } from "./state/navigation";
 import { RoomItemPlacements, ShopItem } from "./state/shopItems";
 import {
-    loadEmotionLogs,
-    loadMonsterState,
-    resetStoredAppData,
-    saveEmotionLogs,
-    saveMonsterState,
+  loadEmotionLogs,
+  loadMonsterState,
+  resetStoredAppData,
+  saveEmotionLogs,
+  saveMonsterState,
 } from "./state/storage";
 import { monsterTheme } from "./styles/theme";
 
-const homeScreenBackgroundAsset = require("../../assets/images/home/home-screen-background.png");
-const shopRoomBackgroundAsset = require("../../assets/images/shop/shop-room-background.png");
-const stageBackgroundAsset = require("../../assets/images/home/monster-stage-background.png");
+const homeScreenBackgroundAsset = require(
+  "../../assets/images/home/home-screen-background.png"
+);
+const shopRoomBackgroundAsset = require(
+  "../../assets/images/shop/shop-room-background.png"
+);
+const stageBackgroundAsset = require(
+  "../../assets/images/home/monster-stage-background.png"
+);
 
 const preloadAssets = [
   homeScreenBackgroundAsset,
@@ -172,17 +179,7 @@ export function MonsterApp() {
   }, []);
 
   useEffect(() => {
-    let isMounted = true;
-
-    Asset.loadAsync(preloadAssets)
-      .catch(() => undefined)
-      .finally(() => {
-        if (!isMounted) return;
-      });
-
-    return () => {
-      isMounted = false;
-    };
+    void Asset.loadAsync(preloadAssets).catch(() => undefined);
   }, []);
 
   useEffect(() => {
