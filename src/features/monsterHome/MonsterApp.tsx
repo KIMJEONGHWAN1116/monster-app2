@@ -44,7 +44,10 @@ import {
 import { getMissionStatuses, MissionStatus } from "./state/missions";
 import {
   type BgmTrackId,
+  createMonsterId,
   FeedEmotion,
+  getActiveMonsterCompanion,
+  getMonsterFormKey,
   initialMonsterState,
   ONAKA_GAIN_PER_FEED,
 } from "./state/monsterState";
@@ -111,6 +114,15 @@ export function MonsterApp() {
   const currentEvolution = useMemo(
     () => getEvolutionById(monster.evolutionId),
     [monster.evolutionId]
+  );
+  const monsterCompanions = useMemo(
+    () => [
+      getActiveMonsterCompanion(monster),
+      ...monster.monsterArchive.filter(
+        (companion) => companion.id !== monster.activeMonsterId
+      ),
+    ],
+    [monster]
   );
   const growthEmotionLogs = useMemo(() => {
     if (monster.growthStartedAt === null) return emotionLogs;
@@ -535,20 +547,34 @@ export function MonsterApp() {
 
   const replaceWithHatchedMonster = (monsterName: string) => {
     const now = Date.now();
+    const newMonsterId = createMonsterId(now);
 
-    setMonster((currentMonster) => ({
-      ...currentMonster,
-      eggDiscoveredAt: null,
-      eggHatchRevealedAt: null,
-      evolutionId: null,
-      feedChargeCount: MAX_FEED_CHARGES,
-      feedChargeUpdatedAt: null,
-      growthStartedAt: now,
-      hungerNotificationId: null,
-      name: monsterName,
-      onakaPercent: 0,
-      onakaUpdatedAt: null,
-    }));
+    setMonster((currentMonster) => {
+      const archivedCurrentMonster = getActiveMonsterCompanion(currentMonster);
+
+      return {
+        ...currentMonster,
+        activeMonsterId: newMonsterId,
+        eggDiscoveredAt: null,
+        eggHatchRevealedAt: null,
+        equippedItemIds: {},
+        evolutionId: null,
+        feedChargeCount: MAX_FEED_CHARGES,
+        feedChargeUpdatedAt: null,
+        growthStartedAt: now,
+        hungerNotificationId: null,
+        monsterArchive: [
+          archivedCurrentMonster,
+          ...currentMonster.monsterArchive.filter(
+            (companion) => companion.id !== archivedCurrentMonster.id
+          ),
+        ],
+        name: monsterName,
+        onakaPercent: 0,
+        onakaUpdatedAt: null,
+        roomItemPlacements: {},
+      };
+    });
     queueHungerReminderCancellation();
     setIsReopeningHatchedMonster(false);
     setLastFeedResult(null);
@@ -561,20 +587,25 @@ export function MonsterApp() {
     profileAvatarId,
     profileImageUri,
     userBirthday,
+    userName,
   }: {
     monsterName: string;
     profileAvatarId: typeof monster.profileAvatarId;
     profileImageUri: string;
     userBirthday: string;
+    userName: string;
   }) => {
-    setMonster((currentMonster) => ({
-      ...currentMonster,
-      hasCompletedProfile: true,
-      name: monsterName,
-      profileAvatarId,
-      profileImageUri,
-      userBirthday,
-    }));
+    setMonster((currentMonster) => {
+      return {
+        ...currentMonster,
+        hasCompletedProfile: true,
+        name: monsterName,
+        profileAvatarId,
+        profileImageUri,
+        userBirthday,
+        userName,
+      };
+    });
     openMainTab("home");
   };
 
@@ -630,31 +661,65 @@ export function MonsterApp() {
 
     const eggDiscoveredAt = Date.now();
 
-    setMonster((currentMonster) => ({
-      ...currentMonster,
-      eggDiscoveredAt: currentMonster.eggDiscoveredAt ?? eggDiscoveredAt,
-      eggHatchRevealedAt: null,
-      evolutionId: evolution.id,
-      hungerNotificationId: null,
-      onakaPercent: 0,
-      onakaUpdatedAt: null,
-      registeredEvolutionIds: Array.from(
-        new Set([...currentMonster.registeredEvolutionIds, evolution.id])
-      ),
-    }));
+    setMonster((currentMonster) => {
+      return {
+        ...currentMonster,
+        eggDiscoveredAt: currentMonster.eggDiscoveredAt ?? eggDiscoveredAt,
+        eggHatchRevealedAt: null,
+        equippedItemIds: {},
+        evolutionId: evolution.id,
+        hungerNotificationId: null,
+        onakaPercent: 0,
+        onakaUpdatedAt: null,
+        registeredEvolutionIds: Array.from(
+          new Set([...currentMonster.registeredEvolutionIds, evolution.id])
+        ),
+        roomItemPlacements: {},
+      };
+    });
     queueHungerReminderCancellation();
     setIsReopeningHatchedMonster(false);
     setPendingEvolution(null);
     setMode("eggDiscovery");
   };
 
-  const switchToRegisteredEvolution = (evolution: EvolutionChoice) => {
-    if (!monster.registeredEvolutionIds.includes(evolution.id)) return;
+  const switchToMonster = (monsterId: string) => {
+    setMonster((currentMonster) => {
+      if (monsterId === currentMonster.activeMonsterId) return currentMonster;
 
-    setMonster((currentMonster) => ({
-      ...currentMonster,
-      evolutionId: evolution.id,
-    }));
+      const nextMonster = currentMonster.monsterArchive.find(
+        (companion) => companion.id === monsterId
+      );
+
+      if (!nextMonster) return currentMonster;
+
+      const archivedCurrentMonster = getActiveMonsterCompanion(currentMonster);
+      const restoredCharges = restoreFeedCharges(nextMonster);
+      const restoredOnaka = restoreOnaka(nextMonster);
+
+      return {
+        ...currentMonster,
+        activeMonsterId: nextMonster.id,
+        equippedItemIds: {},
+        evolutionId: nextMonster.evolutionId,
+        ...restoredCharges,
+        growthStartedAt: nextMonster.growthStartedAt,
+        monsterArchive: [
+          archivedCurrentMonster,
+          ...currentMonster.monsterArchive.filter(
+            (companion) =>
+              companion.id !== nextMonster.id &&
+              companion.id !== archivedCurrentMonster.id
+          ),
+        ],
+        name: nextMonster.name,
+        ...restoredOnaka,
+        roomItemPlacements: nextMonster.roomItemPlacements,
+      };
+    });
+    queueHungerReminderCancellation();
+    setLastFeedResult(null);
+    setPendingEvolution(null);
     openMainTab("home");
   };
 
@@ -699,6 +764,10 @@ export function MonsterApp() {
         ...currentMonster,
         equippedItemIds: {},
         roomItemPlacements: savedPlacements,
+        roomItemPlacementsByForm: {
+          ...currentMonster.roomItemPlacementsByForm,
+          [getMonsterFormKey(currentMonster.evolutionId)]: savedPlacements,
+        },
       };
     });
   };
@@ -731,6 +800,7 @@ export function MonsterApp() {
           initialProfileAvatarId={monster.profileAvatarId}
           initialProfileImageUri={monster.profileImageUri}
           initialUserBirthday={monster.userBirthday}
+          initialUserName={monster.userName}
           isEditing={monster.hasCompletedProfile}
           onBack={
             monster.hasCompletedProfile
@@ -782,8 +852,10 @@ export function MonsterApp() {
         />
       ) : mode === "dex" ? (
         <MonsterDexScreen
+          activeMonsterId={monster.activeMonsterId}
+          companions={monsterCompanions}
           onBack={() => openMainTab("home")}
-          onSelectEvolution={switchToRegisteredEvolution}
+          onSelectMonster={switchToMonster}
           registeredEvolutionIds={monster.registeredEvolutionIds}
           theme={monsterTheme}
         />

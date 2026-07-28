@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import {
   Image,
   Keyboard,
+  Platform,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -70,12 +71,11 @@ export function FeedEmotionScreen({
     if (canSubmit) onSubmit(selectedEmotion);
   };
 
-  return (
-    <TouchableWithoutFeedback accessible={false} onPress={Keyboard.dismiss}>
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: theme.colors.background }]}
-      >
-        <View style={[styles.artboard, { width: artboardWidth }]}>
+  const screen = (
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
+      <View style={[styles.artboard, { width: artboardWidth }]}>
         <Image
           resizeMode="stretch"
           source={feedEmotionDesign}
@@ -178,8 +178,15 @@ export function FeedEmotionScreen({
         >
           {!canSubmit && <Text style={styles.disabledButtonText}>食べてもらう</Text>}
         </Pressable>
-        </View>
-      </SafeAreaView>
+      </View>
+    </SafeAreaView>
+  );
+
+  if (Platform.OS === "web") return screen;
+
+  return (
+    <TouchableWithoutFeedback accessible={false} onPress={Keyboard.dismiss}>
+      {screen}
     </TouchableWithoutFeedback>
   );
 }
@@ -205,12 +212,13 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.98 }],
   },
   closeMask: {
-    backgroundColor: "#f8f4fd",
-    height: "10.5%",
+    backgroundColor: "rgba(250, 249, 255, 0.98)",
+    borderRadius: 999,
+    height: "5.5%",
     position: "absolute",
-    right: 0,
-    top: 0,
-    width: "21%",
+    right: "6.8%",
+    top: "3.8%",
+    width: "11.5%",
     zIndex: 16,
   },
   container: {

@@ -2,7 +2,16 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { EmotionLogEntry } from "./emotionLog";
 import { MAX_FEED_CHARGES, restoreFeedCharges } from "./feedCharges";
-import { initialMonsterState, MonsterState } from "./monsterState";
+import {
+  getMonsterFormKey,
+  INITIAL_MONSTER_ID,
+  initialMonsterState,
+  type MonsterCompanion,
+  type MonsterFormKey,
+  type MonsterNamesByForm,
+  MonsterState,
+  type RoomItemPlacementsByForm,
+} from "./monsterState";
 import { isMissionClaimKey, type MissionClaimKey } from "./missions";
 import { restoreOnaka } from "./onaka";
 import { isProfileAvatarId } from "./profile";
@@ -79,11 +88,55 @@ export async function loadMonsterState() {
       (parsedMonster as { equippedItemIds?: unknown }).equippedItemIds,
       ownedItemIds
     );
-    const roomItemPlacements = normalizeRoomItemPlacements(
+    const rawMonsterArchive = (
+      parsedMonster as { monsterArchive?: unknown }
+    ).monsterArchive;
+    const hasMonsterArchive = Array.isArray(rawMonsterArchive);
+    const legacyRoomItemPlacements = normalizeRoomItemPlacements(
       (parsedMonster as { roomItemPlacements?: unknown }).roomItemPlacements,
       ownedItemIds,
       equippedItemIds
     );
+    const rawRoomItemPlacementsByForm = (
+      parsedMonster as { roomItemPlacementsByForm?: unknown }
+    ).roomItemPlacementsByForm;
+    const hasRoomItemPlacementsByForm = Boolean(
+      rawRoomItemPlacementsByForm &&
+        typeof rawRoomItemPlacementsByForm === "object"
+    );
+    const roomItemPlacementsByForm = normalizeRoomItemPlacementsByForm(
+      rawRoomItemPlacementsByForm,
+      ownedItemIds
+    );
+    const currentFormKey = getMonsterFormKey(evolutionId);
+
+    if (!hasRoomItemPlacementsByForm) {
+      roomItemPlacementsByForm[currentFormKey] = legacyRoomItemPlacements;
+    }
+
+    const roomItemPlacements = hasMonsterArchive
+      ? legacyRoomItemPlacements
+      : roomItemPlacementsByForm[currentFormKey] ?? {};
+    const legacyMonsterName = normalizeMonsterName(
+      (parsedMonster as { name?: unknown }).name
+    );
+    const rawMonsterNamesByForm = (
+      parsedMonster as { monsterNamesByForm?: unknown }
+    ).monsterNamesByForm;
+    const hasMonsterNamesByForm = Boolean(
+      rawMonsterNamesByForm && typeof rawMonsterNamesByForm === "object"
+    );
+    const monsterNamesByForm = normalizeMonsterNamesByForm(
+      rawMonsterNamesByForm
+    );
+
+    if (!hasMonsterNamesByForm) {
+      monsterNamesByForm[currentFormKey] = legacyMonsterName;
+    }
+
+    const name = hasMonsterArchive
+      ? legacyMonsterName
+      : monsterNamesByForm[currentFormKey] ?? legacyMonsterName;
     const onakaState = restoreOnaka({
       onakaPercent:
         typeof parsedMonster.onakaPercent === "number"
@@ -138,6 +191,10 @@ export async function loadMonsterState() {
         ? (parsedMonster as { hasCompletedProfile: boolean })
             .hasCompletedProfile
         : Boolean(parsedMonster.name && userBirthday);
+    const userName = normalizeUserName(
+      (parsedMonster as { userName?: unknown }).userName,
+      hasCompletedProfile
+    );
     const feedChargeState = restoreFeedCharges({
       feedChargeCount:
         typeof (parsedMonster as { feedChargeCount?: unknown })
@@ -151,9 +208,59 @@ export async function loadMonsterState() {
               .feedChargeUpdatedAt
           : null,
     });
+    const activeMonsterId = normalizeMonsterId(
+      (parsedMonster as { activeMonsterId?: unknown }).activeMonsterId,
+      INITIAL_MONSTER_ID
+    );
+    const monsterArchive = normalizeMonsterArchive(
+      rawMonsterArchive,
+      ownedItemIds,
+      activeMonsterId
+    );
+
+    if (!hasMonsterArchive) {
+      const archivedBaseName = monsterNamesByForm.base;
+
+      if (
+        evolutionId !== null &&
+        eggDiscoveredAt === null &&
+        archivedBaseName
+      ) {
+        monsterArchive.push({
+          evolutionId: null,
+          feedChargeCount: MAX_FEED_CHARGES,
+          feedChargeUpdatedAt: null,
+          growthStartedAt: null,
+          id: "monster-legacy-base",
+          name: archivedBaseName,
+          onakaPercent: 0,
+          onakaUpdatedAt: null,
+          roomItemPlacements: roomItemPlacementsByForm.base ?? {},
+        });
+      }
+
+      registeredEvolutionIds.forEach((registeredEvolutionId) => {
+        if (registeredEvolutionId === evolutionId) return;
+
+        monsterArchive.push({
+          evolutionId: registeredEvolutionId,
+          feedChargeCount: MAX_FEED_CHARGES,
+          feedChargeUpdatedAt: null,
+          growthStartedAt: null,
+          id: `monster-legacy-${registeredEvolutionId}`,
+          name:
+            monsterNamesByForm[registeredEvolutionId] ?? legacyMonsterName,
+          onakaPercent: 0,
+          onakaUpdatedAt: null,
+          roomItemPlacements:
+            roomItemPlacementsByForm[registeredEvolutionId] ?? {},
+        });
+      });
+    }
 
     return {
       ...initialMonsterState,
+      activeMonsterId,
       bgmTrack,
       bgmVolume,
       claimedMissionIds,
@@ -170,7 +277,9 @@ export async function loadMonsterState() {
           ? (parsedMonster as { hungerNotificationId: string })
               .hungerNotificationId
           : null,
-      name: parsedMonster.name ?? initialMonsterState.name,
+      monsterArchive,
+      monsterNamesByForm,
+      name,
       notificationsEnabled:
         typeof (parsedMonster as { notificationsEnabled?: unknown })
           .notificationsEnabled === "boolean"
@@ -184,8 +293,10 @@ export async function loadMonsterState() {
       profileImageUri,
       registeredEvolutionIds,
       roomItemPlacements,
+      roomItemPlacementsByForm,
       seVolume,
       userBirthday,
+      userName,
     };
   } catch {
     return initialMonsterState;
@@ -200,6 +311,8 @@ function normalizeEggDiscoveredAt(
   value: unknown,
   evolutionId: MonsterState["evolutionId"]
 ) {
+  if (value === null) return null;
+
   if (typeof value === "number" && Number.isFinite(value) && value > 0) {
     return Math.min(value, Date.now());
   }
@@ -280,6 +393,134 @@ function normalizeRoomItemPlacements(
   });
 
   return normalizedPlacements;
+}
+
+function normalizeRoomItemPlacementsByForm(
+  placementsByForm: unknown,
+  ownedItemIds: string[]
+): RoomItemPlacementsByForm {
+  if (!placementsByForm || typeof placementsByForm !== "object") return {};
+
+  return Object.entries(placementsByForm).reduce<RoomItemPlacementsByForm>(
+    (result, [formKey, placements]) => {
+      const normalizedFormKey = normalizeMonsterFormKey(formKey);
+
+      if (normalizedFormKey) {
+        result[normalizedFormKey] = normalizeRoomItemPlacements(
+          placements,
+          ownedItemIds,
+          {}
+        );
+      }
+
+      return result;
+    },
+    {}
+  );
+}
+
+function normalizeMonsterFormKey(value: unknown): MonsterFormKey | null {
+  if (value === "base") return "base";
+  return normalizeEvolutionId(value);
+}
+
+function normalizeMonsterName(value: unknown) {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return initialMonsterState.name;
+  }
+
+  return value.trim().slice(0, 16);
+}
+
+function normalizeMonsterId(value: unknown, fallback: string) {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return fallback;
+  }
+
+  return value.trim().slice(0, 64);
+}
+
+function normalizeMonsterArchive(
+  value: unknown,
+  ownedItemIds: string[],
+  activeMonsterId: string
+): MonsterCompanion[] {
+  if (!Array.isArray(value)) return [];
+
+  const seenIds = new Set([activeMonsterId]);
+
+  return value.flatMap((entry, index) => {
+    if (!entry || typeof entry !== "object") return [];
+
+    const candidate = entry as Partial<MonsterCompanion>;
+    const id = normalizeMonsterId(candidate.id, `monster-saved-${index}`);
+
+    if (seenIds.has(id)) return [];
+
+    const evolutionId =
+      candidate.evolutionId === null
+        ? null
+        : normalizeEvolutionId(candidate.evolutionId);
+
+    if (candidate.evolutionId !== null && evolutionId === null) return [];
+
+    seenIds.add(id);
+
+    return [
+      {
+        evolutionId,
+        feedChargeCount:
+          typeof candidate.feedChargeCount === "number"
+            ? Math.round(clamp(candidate.feedChargeCount, 0, MAX_FEED_CHARGES))
+            : MAX_FEED_CHARGES,
+        feedChargeUpdatedAt: normalizeOptionalTimestamp(
+          candidate.feedChargeUpdatedAt
+        ),
+        growthStartedAt: normalizeOptionalTimestamp(candidate.growthStartedAt),
+        id,
+        name: normalizeMonsterName(candidate.name),
+        onakaPercent:
+          typeof candidate.onakaPercent === "number"
+            ? Math.round(clamp(candidate.onakaPercent, 0, 100))
+            : 0,
+        onakaUpdatedAt: normalizeOptionalTimestamp(candidate.onakaUpdatedAt),
+        roomItemPlacements: normalizeRoomItemPlacements(
+          candidate.roomItemPlacements,
+          ownedItemIds,
+          {}
+        ),
+      },
+    ];
+  });
+}
+
+function normalizeMonsterNamesByForm(value: unknown): MonsterNamesByForm {
+  if (!value || typeof value !== "object") return {};
+
+  return Object.entries(value).reduce<MonsterNamesByForm>(
+    (result, [formKey, name]) => {
+      const normalizedFormKey = normalizeMonsterFormKey(formKey);
+
+      if (
+        normalizedFormKey &&
+        typeof name === "string" &&
+        name.trim().length > 0
+      ) {
+        result[normalizedFormKey] = name.trim().slice(0, 16);
+      }
+
+      return result;
+    },
+    {}
+  );
+}
+
+function normalizeUserName(value: unknown, hasCompletedProfile: boolean) {
+  if (typeof value === "string" && value.trim().length > 0) {
+    return value.trim().slice(0, 16);
+  }
+
+  return hasCompletedProfile ? "あなた" : initialMonsterState.userName;
 }
 
 function clampRoomItemPlacement(

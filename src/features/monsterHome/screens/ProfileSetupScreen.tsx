@@ -32,6 +32,7 @@ type ProfileSetupValue = {
   profileAvatarId: ProfileAvatarId;
   profileImageUri: string;
   userBirthday: string;
+  userName: string;
 };
 
 type ProfileSetupScreenProps = {
@@ -39,6 +40,7 @@ type ProfileSetupScreenProps = {
   initialProfileAvatarId: ProfileAvatarId;
   initialProfileImageUri: string;
   initialUserBirthday: string;
+  initialUserName: string;
   isEditing?: boolean;
   onBack?: () => void;
   onSubmit: (value: ProfileSetupValue) => void;
@@ -50,6 +52,7 @@ export function ProfileSetupScreen({
   initialProfileAvatarId,
   initialProfileImageUri,
   initialUserBirthday,
+  initialUserName,
   isEditing = false,
   onBack,
   onSubmit,
@@ -57,6 +60,7 @@ export function ProfileSetupScreen({
 }: ProfileSetupScreenProps) {
   const { width } = useWindowDimensions();
   const [monsterName, setMonsterName] = useState(initialMonsterName);
+  const [userName, setUserName] = useState(initialUserName);
   const [profileAvatarId] = useState<ProfileAvatarId>(initialProfileAvatarId);
   const [profileImageUri, setProfileImageUri] = useState(initialProfileImageUri);
   const [isBirthdayPickerOpen, setIsBirthdayPickerOpen] = useState(false);
@@ -72,8 +76,10 @@ export function ProfileSetupScreen({
   const artboardWidth = Math.min(width, 430);
   const silhouetteSize = artboardWidth * 0.48;
   const trimmedMonsterName = monsterName.trim();
+  const trimmedUserName = userName.trim();
   const userBirthday = formatBirthday(birthYear, birthMonth, birthDay);
-  const canSubmit = trimmedMonsterName.length > 0;
+  const canSubmit =
+    trimmedMonsterName.length > 0 && trimmedUserName.length > 0;
   const years = useMemo(() => buildYearOptions(), []);
   const days = useMemo(
     () => buildDayOptions(birthYear, birthMonth),
@@ -105,6 +111,7 @@ export function ProfileSetupScreen({
       profileAvatarId,
       profileImageUri,
       userBirthday,
+      userName: trimmedUserName.slice(0, 16),
     });
   };
 
@@ -186,6 +193,18 @@ export function ProfileSetupScreen({
           returnKeyType="done"
           style={styles.nameInput}
           value={monsterName}
+        />
+
+        <TextInput
+          accessibilityLabel="あなたのニックネーム"
+          autoCapitalize="none"
+          maxLength={16}
+          onChangeText={setUserName}
+          placeholder="あなたのニックネーム"
+          placeholderTextColor="#aaa2b8"
+          returnKeyType="done"
+          style={[styles.nameInput, styles.userNameInput]}
+          value={userName}
         />
 
         <Pressable
@@ -492,7 +511,7 @@ const styles = StyleSheet.create({
     left: "8.6%",
     paddingHorizontal: 22,
     position: "absolute",
-    top: "58.8%",
+    top: "59.8%",
     width: "82%",
     zIndex: 10,
   },
@@ -596,6 +615,10 @@ const styles = StyleSheet.create({
     top: "45.9%",
     width: "82%",
     zIndex: 10,
+  },
+  userNameInput: {
+    top: "52.9%",
+    zIndex: 11,
   },
   pickerColumn: {
     flex: 1,

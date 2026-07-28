@@ -17,7 +17,9 @@ import {
   EvolutionChoice,
   evolutionChoices,
   EvolutionId,
+  getEvolutionById,
 } from "../state/evolution";
+import type { MonsterCompanion } from "../state/monsterState";
 import { MonsterTheme, monsterTheme } from "../styles/theme";
 
 const dexDesign = require("../../../assets/images/home/monster-dex-design.png");
@@ -36,15 +38,19 @@ const CARD_ROWS = [
 ];
 
 type MonsterDexScreenProps = {
+  activeMonsterId: string;
+  companions: MonsterCompanion[];
   onBack: () => void;
-  onSelectEvolution: (evolution: EvolutionChoice) => void;
+  onSelectMonster: (monsterId: string) => void;
   registeredEvolutionIds: EvolutionId[];
   theme?: MonsterTheme;
 };
 
 export function MonsterDexScreen({
+  activeMonsterId,
+  companions,
   onBack,
-  onSelectEvolution,
+  onSelectMonster,
   registeredEvolutionIds,
   theme = monsterTheme,
 }: MonsterDexScreenProps) {
@@ -66,21 +72,37 @@ export function MonsterDexScreen({
   const [selectedChoice, setSelectedChoice] = useState<EvolutionChoice | null>(
     null
   );
+  const [isCollectionView, setIsCollectionView] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
 
   const openChoiceModal = (choice: EvolutionChoice) => {
+    setIsCollectionView(false);
     setSelectedChoice(choice);
+    setIsModalVisible(true);
+  };
+
+  const openCollectionModal = () => {
+    setIsCollectionView(true);
+    setSelectedChoice(null);
     setIsModalVisible(true);
   };
 
   const closeChoiceModal = () => {
     setIsModalVisible(false);
+    setIsCollectionView(false);
     setSelectedChoice(null);
   };
 
   const selectedIsRegistered = selectedChoice
     ? registeredSet.has(selectedChoice.id)
     : false;
+  const selectedCompanions = isCollectionView
+    ? companions
+    : selectedChoice
+      ? companions.filter(
+          (companion) => companion.evolutionId === selectedChoice.id
+        )
+      : [];
 
   return (
     <View style={[styles.container, { backgroundColor: "#f9f7fc" }]}>
@@ -178,10 +200,58 @@ export function MonsterDexScreen({
             />
           </View>
 
+          <Pressable
+            accessibilityLabel={`育てたもぐもん${companions.length}体を表示`}
+            accessibilityRole="button"
+            onPress={openCollectionModal}
+            style={({ pressed }) => [
+              styles.collectionButton,
+              {
+                height: 62 * scale,
+                left: 74 * scale,
+                top: 332 * scale,
+                width: 699 * scale,
+              },
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <MaterialCommunityIcons
+              color="#7e6bd0"
+              name="account-group-outline"
+              size={Math.max(18, 34 * scale)}
+            />
+            <Text
+              style={[
+                styles.collectionButtonText,
+                { fontSize: Math.max(13, 27 * scale) },
+              ]}
+            >
+              なかまたち
+            </Text>
+            <View style={styles.collectionCountBadge}>
+              <Text
+                style={[
+                  styles.collectionCountText,
+                  { fontSize: Math.max(12, 24 * scale) },
+                ]}
+              >
+                {companions.length}体
+              </Text>
+            </View>
+            <MaterialCommunityIcons
+              color="#9b8bd8"
+              name="chevron-right"
+              size={Math.max(19, 38 * scale)}
+            />
+          </Pressable>
+
           {evolutionChoices.map((choice, index) => {
             const rowIndex = Math.floor(index / 2);
             const row = CARD_ROWS[rowIndex] ?? CARD_ROWS[CARD_ROWS.length - 1];
             const isRegistered = registeredSet.has(choice.id);
+            const companionCount = companions.filter(
+              (companion) => companion.evolutionId === choice.id
+            ).length;
             const cardLeft = index % 2 === 0 ? CARD_LEFT : CARD_RIGHT;
 
             return (
@@ -189,6 +259,7 @@ export function MonsterDexScreen({
                 cardHeight={row.height * scale}
                 cardWidth={CARD_WIDTH * scale}
                 choice={choice}
+                companionCount={companionCount}
                 isRegistered={isRegistered}
                 key={choice.id}
                 left={cardLeft * scale}
@@ -218,9 +289,11 @@ export function MonsterDexScreen({
           >
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {selectedIsRegistered && selectedChoice
-                  ? selectedChoice.name
-                  : "???"}
+                {isCollectionView
+                  ? "いっしょに暮らす仲間"
+                  : selectedIsRegistered && selectedChoice
+                    ? selectedChoice.name
+                    : "???"}
               </Text>
               <Pressable
                 accessibilityLabel="閉じる"
@@ -232,42 +305,48 @@ export function MonsterDexScreen({
               </Pressable>
             </View>
 
-            <View style={styles.modalVisualFrame}>
-              {selectedIsRegistered && selectedChoice ? (
-                <MonsterPreview
-                  evolutionVisual={selectedChoice.visual}
-                  forceStaticImage
-                  size={180}
-                />
-              ) : selectedChoice ? (
-                <LockedMonsterVisual choice={selectedChoice} size={158} />
-              ) : null}
-            </View>
+            {!isCollectionView ? (
+              <View style={styles.modalVisualFrame}>
+                {selectedIsRegistered && selectedChoice ? (
+                  <MonsterPreview
+                    evolutionVisual={selectedChoice.visual}
+                    forceStaticImage
+                    size={180}
+                  />
+                ) : selectedChoice ? (
+                  <LockedMonsterVisual choice={selectedChoice} size={158} />
+                ) : null}
+              </View>
+            ) : null}
 
             <Text style={styles.modalText}>
-              {selectedIsRegistered && selectedChoice
-                ? selectedChoice.description
-                : "まだ出会っていない進化体です。モヤモヤを食べて育つと、ここに登録されます。"}
+              {isCollectionView
+                ? "育てたモンスターはここに残ります。同じ進化体が複数いても、名前を見て交代できます。"
+                : selectedIsRegistered && selectedChoice
+                  ? selectedChoice.description
+                  : "まだ出会っていない進化体です。モヤモヤを食べて育つと、ここに登録されます。"}
             </Text>
 
-            {selectedChoice?.canEvolve && selectedIsRegistered && (
-              <Pressable
-                accessibilityLabel="このもぐもんに切り替える"
-                accessibilityRole="button"
-                onPress={() => {
-                  onSelectEvolution(selectedChoice);
-                  closeChoiceModal();
-                }}
-                style={({ pressed }) => [
-                  styles.switchButton,
-                  { backgroundColor: theme.colors.lavender },
-                  pressed && styles.buttonPressed,
-                ]}
+            {(isCollectionView || selectedIsRegistered) && (
+              <ScrollView
+                contentContainerStyle={styles.companionListContent}
+                nestedScrollEnabled
+                showsVerticalScrollIndicator={false}
+                style={styles.companionList}
               >
-                <Text style={styles.switchButtonText}>
-                  このもぐもんに切り替える
-                </Text>
-              </Pressable>
+                {selectedCompanions.map((companion) => (
+                  <CompanionRow
+                    companion={companion}
+                    isActive={companion.id === activeMonsterId}
+                    key={companion.id}
+                    onSelect={() => {
+                      onSelectMonster(companion.id);
+                      closeChoiceModal();
+                    }}
+                    theme={theme}
+                  />
+                ))}
+              </ScrollView>
             )}
           </Pressable>
         </Pressable>
@@ -280,6 +359,7 @@ function DexCard({
   cardHeight,
   cardWidth,
   choice,
+  companionCount,
   isRegistered,
   left,
   onPress,
@@ -290,6 +370,7 @@ function DexCard({
   cardHeight: number;
   cardWidth: number;
   choice: EvolutionChoice;
+  companionCount: number;
   isRegistered: boolean;
   left: number;
   onPress: () => void;
@@ -369,10 +450,78 @@ function DexCard({
               },
             ]}
           >
-            登録済み
+            {companionCount > 0 ? `${companionCount}体` : "登録済み"}
           </Text>
         </View>
       )}
+    </Pressable>
+  );
+}
+
+function CompanionRow({
+  companion,
+  isActive,
+  onSelect,
+  theme,
+}: {
+  companion: MonsterCompanion;
+  isActive: boolean;
+  onSelect: () => void;
+  theme: MonsterTheme;
+}) {
+  const evolution = getEvolutionById(companion.evolutionId);
+
+  return (
+    <Pressable
+      accessibilityLabel={
+        isActive
+          ? `${companion.name}はいま一緒にいるモンスター`
+          : `${companion.name}に交代する`
+      }
+      accessibilityRole="button"
+      accessibilityState={{ disabled: isActive }}
+      disabled={isActive}
+      onPress={onSelect}
+      style={({ pressed }) => [
+        styles.companionRow,
+        isActive && styles.companionRowActive,
+        pressed && !isActive && styles.buttonPressed,
+      ]}
+    >
+      <View style={styles.companionVisual}>
+        <MonsterPreview
+          evolutionVisual={evolution?.visual}
+          forceStaticImage
+          size={66}
+        />
+      </View>
+      <View style={styles.companionCopy}>
+        <Text numberOfLines={1} style={styles.companionName}>
+          {companion.name}
+        </Text>
+        <Text style={styles.companionType}>
+          {evolution?.name ?? "ベビーモグ"}
+        </Text>
+      </View>
+      <View
+        style={[
+          styles.companionAction,
+          {
+            backgroundColor: isActive
+              ? "#eee9fb"
+              : theme.colors.lavender,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.companionActionText,
+            !isActive && styles.companionActionTextReady,
+          ]}
+        >
+          {isActive ? "いま一緒" : "交代"}
+        </Text>
+      </View>
     </Pressable>
   );
 }
@@ -464,6 +613,103 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     width: "100%",
   },
+  collectionButton: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.96)",
+    borderColor: "#d8cff4",
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: "row",
+    paddingHorizontal: 14,
+    position: "absolute",
+    zIndex: 4,
+  },
+  collectionButtonText: {
+    color: "#302a75",
+    flex: 1,
+    fontWeight: "900",
+    letterSpacing: 0,
+    marginLeft: 8,
+  },
+  collectionCountBadge: {
+    alignItems: "center",
+    backgroundColor: "#eee9fb",
+    borderRadius: 999,
+    justifyContent: "center",
+    minWidth: 48,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  collectionCountText: {
+    color: "#7767c7",
+    fontWeight: "900",
+    letterSpacing: 0,
+  },
+  companionAction: {
+    alignItems: "center",
+    borderRadius: 999,
+    justifyContent: "center",
+    minHeight: 36,
+    minWidth: 68,
+    paddingHorizontal: 12,
+  },
+  companionActionText: {
+    color: "#8b7dbf",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 0,
+  },
+  companionActionTextReady: {
+    color: "#ffffff",
+  },
+  companionCopy: {
+    flex: 1,
+    gap: 3,
+    marginLeft: 10,
+    minWidth: 0,
+  },
+  companionList: {
+    marginTop: 15,
+    maxHeight: 250,
+  },
+  companionListContent: {
+    gap: 10,
+    paddingBottom: 2,
+  },
+  companionName: {
+    color: "#29236f",
+    fontSize: 16,
+    fontWeight: "900",
+    letterSpacing: 0,
+  },
+  companionRow: {
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderColor: "#e2daf6",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    minHeight: 78,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  companionRowActive: {
+    backgroundColor: "#faf8ff",
+    borderColor: "#cfc1f2",
+  },
+  companionType: {
+    color: "#8b849e",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0,
+  },
+  companionVisual: {
+    alignItems: "center",
+    height: 64,
+    justifyContent: "center",
+    overflow: "hidden",
+    width: 64,
+  },
   container: {
     flex: 1,
     overflow: "hidden",
@@ -506,6 +752,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.98)",
     borderRadius: 24,
     borderWidth: 1,
+    maxHeight: "88%",
     maxWidth: 390,
     padding: 20,
     width: "86%",

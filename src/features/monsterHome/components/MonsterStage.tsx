@@ -385,135 +385,174 @@ export function MonsterStage({
         <Animated.View
           {...panResponder.panHandlers}
           style={[
-            styles.monsterWrap,
+            styles.motionLayer,
             noBrowserPanStyle,
             {
-              height: monsterRenderHeight,
+              height: monsterAreaSize,
               transform: [{ translateY }, { scaleX }, { scaleY }],
-              width: monsterRenderWidth,
+              width: monsterAreaSize,
             },
           ]}
         >
-          {evolutionImage ? (
-            <Image
-              source={evolutionImage}
-              resizeMode="contain"
-              style={styles.evolutionImage}
-            />
-          ) : evolutionAnimation ? (
-            <>
-              <View pointerEvents="none" style={[styles.monsterLayer, styles.bodyLayer]}>
-                <LottieView
-                  autoPlay
-                  loop
-                  source={evolutionAnimation.idleBodySource}
-                  style={styles.lottieFill}
-                />
-              </View>
-
-              {evolutionAnimation.idleArmSource && (
-                <View pointerEvents="none" style={[styles.monsterLayer, styles.armLayer]}>
+          <View
+            style={[
+              styles.monsterWrap,
+              {
+                height: monsterRenderHeight,
+                width: monsterRenderWidth,
+              },
+            ]}
+          >
+            {evolutionImage ? (
+              <Image
+                source={evolutionImage}
+                resizeMode="contain"
+                style={styles.evolutionImage}
+              />
+            ) : evolutionAnimation ? (
+              <>
+                <View
+                  pointerEvents="none"
+                  style={[styles.monsterLayer, styles.bodyLayer]}
+                >
                   <LottieView
                     autoPlay
-                    key={isEvolutionTouched ? "evolution-arm-touch" : "evolution-arm-idle"}
+                    loop
+                    source={evolutionAnimation.idleBodySource}
+                    style={styles.lottieFill}
+                  />
+                </View>
+
+                {evolutionAnimation.idleArmSource && (
+                  <View
+                    pointerEvents="none"
+                    style={[styles.monsterLayer, styles.armLayer]}
+                  >
+                    <LottieView
+                      autoPlay
+                      key={
+                        isEvolutionTouched
+                          ? "evolution-arm-touch"
+                          : "evolution-arm-idle"
+                      }
+                      loop
+                      source={
+                        isEvolutionTouched && evolutionAnimation.touchArmSource
+                          ? evolutionAnimation.touchArmSource
+                          : evolutionAnimation.idleArmSource
+                      }
+                      style={styles.lottieFill}
+                    />
+                  </View>
+                )}
+
+                <View
+                  pointerEvents="none"
+                  style={[styles.monsterLayer, styles.faceLayer]}
+                >
+                  <LottieView
+                    autoPlay
+                    key={
+                      isEvolutionTouched
+                        ? "evolution-face-touch"
+                        : "evolution-face-idle"
+                    }
                     loop
                     source={
-                      isEvolutionTouched && evolutionAnimation.touchArmSource
-                        ? evolutionAnimation.touchArmSource
-                        : evolutionAnimation.idleArmSource
+                      isEvolutionTouched && evolutionAnimation.touchFaceSource
+                        ? evolutionAnimation.touchFaceSource
+                        : evolutionAnimation.idleFaceSource
                     }
                     style={styles.lottieFill}
                   />
                 </View>
-              )}
-
-              <View pointerEvents="none" style={[styles.monsterLayer, styles.faceLayer]}>
-                <LottieView
-                  autoPlay
-                  key={isEvolutionTouched ? "evolution-face-touch" : "evolution-face-idle"}
-                  loop
-                  source={
-                    isEvolutionTouched && evolutionAnimation.touchFaceSource
-                      ? evolutionAnimation.touchFaceSource
-                      : evolutionAnimation.idleFaceSource
-                  }
-                  style={styles.lottieFill}
-                />
-              </View>
-            </>
-          ) : (
-            <>
-              <View pointerEvents="none" style={[styles.monsterLayer, styles.bodyLayer]}>
-                <LottieView
-                  autoPlay
-                  loop
-                  source={monsterBodyIdle}
-                  style={styles.lottieFill}
-                />
-              </View>
-
-              {!isBlinking && motion !== "squash" && (
-                <View pointerEvents="none" style={[styles.monsterLayer, styles.faceLayer]}>
+              </>
+            ) : (
+              <>
+                <View
+                  pointerEvents="none"
+                  style={[styles.monsterLayer, styles.bodyLayer]}
+                >
                   <LottieView
                     autoPlay
                     loop
-                    source={monsterFaceIdle}
+                    source={monsterBodyIdle}
                     style={styles.lottieFill}
                   />
                 </View>
-              )}
 
-              {isBlinking && (
-                <View pointerEvents="none" style={[styles.monsterLayer, styles.faceLayer]}>
-                  <LottieView
-                    ref={blinkRef}
-                    autoPlay
-                    loop={false}
-                    source={monsterFaceBlink}
-                    style={styles.lottieFill}
-                  />
-                </View>
-              )}
+                {!isBlinking && motion !== "squash" && (
+                  <View
+                    pointerEvents="none"
+                    style={[styles.monsterLayer, styles.faceLayer]}
+                  >
+                    <LottieView
+                      autoPlay
+                      loop
+                      source={monsterFaceIdle}
+                      style={styles.lottieFill}
+                    />
+                  </View>
+                )}
 
-              {motion === "squash" && !isBlinking && (
-                <View pointerEvents="none" style={[styles.monsterLayer, styles.faceLayer]}>
-                  <LottieView
-                    autoPlay
-                    loop
-                    source={monsterFaceSquash}
-                    style={styles.lottieFill}
-                  />
-                </View>
-              )}
-            </>
-          )}
-        </Animated.View>
+                {isBlinking && (
+                  <View
+                    pointerEvents="none"
+                    style={[styles.monsterLayer, styles.faceLayer]}
+                  >
+                    <LottieView
+                      ref={blinkRef}
+                      autoPlay
+                      loop={false}
+                      source={monsterFaceBlink}
+                      style={styles.lottieFill}
+                    />
+                  </View>
+                )}
 
-        {placedItems.map(({ item, placement }) => (
-          <View
-            key={item.id}
-            pointerEvents="none"
-            style={[
-              styles.roomItemLayer,
-              {
-                height: monsterAreaSize * placement.height,
-                left: monsterAreaSize * placement.left,
-                top: monsterAreaSize * placement.top,
-                width: monsterAreaSize * placement.width,
-                zIndex: placement.zIndex,
-              },
-              placement.rotate
-                ? { transform: [{ rotate: placement.rotate }] }
-                : null,
-            ]}
-          >
-            <Image
-              resizeMode="contain"
-              source={item.imageSource}
-              style={styles.roomItemImage}
-            />
+                {motion === "squash" && !isBlinking && (
+                  <View
+                    pointerEvents="none"
+                    style={[styles.monsterLayer, styles.faceLayer]}
+                  >
+                    <LottieView
+                      autoPlay
+                      loop
+                      source={monsterFaceSquash}
+                      style={styles.lottieFill}
+                    />
+                  </View>
+                )}
+              </>
+            )}
           </View>
-        ))}
+
+          {placedItems.map(({ item, placement }) => (
+            <View
+              key={item.id}
+              pointerEvents="none"
+              style={[
+                styles.roomItemLayer,
+                {
+                  height: monsterAreaSize * placement.height,
+                  left: monsterAreaSize * placement.left,
+                  top: monsterAreaSize * placement.top,
+                  width: monsterAreaSize * placement.width,
+                  zIndex: placement.zIndex,
+                },
+                placement.rotate
+                  ? { transform: [{ rotate: placement.rotate }] }
+                  : null,
+              ]}
+            >
+              <Image
+                resizeMode="contain"
+                source={item.imageSource}
+                style={styles.roomItemImage}
+              />
+            </View>
+          ))}
+        </Animated.View>
       </View>
 
     </ImageBackground>
@@ -540,6 +579,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     overflow: "visible",
+    zIndex: 5,
+  },
+  motionLayer: {
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "visible",
+    position: "absolute",
     zIndex: 5,
   },
   monsterWrap: {

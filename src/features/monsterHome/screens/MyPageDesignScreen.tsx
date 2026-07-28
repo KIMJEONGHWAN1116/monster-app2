@@ -312,7 +312,9 @@ export function MyPageScreen({
           </View>
 
           <View style={styles.userNameOverlay}>
-            <Text style={styles.userNameText}>あなた</Text>
+            <Text numberOfLines={1} style={styles.userNameText}>
+              {monster.userName || "あなた"}
+            </Text>
           </View>
           <Pressable
             accessibilityLabel="プロフィールを編集"
@@ -1537,12 +1539,13 @@ const styles = StyleSheet.create({
     left: "42.5%",
     paddingHorizontal: 4,
     position: "absolute",
+    right: "7%",
     top: "18.2%",
     zIndex: 8,
   },
   userNameText: {
     color: "#25256f",
-    fontSize: 21,
+    fontSize: 18,
     fontWeight: "900",
   },
 });
